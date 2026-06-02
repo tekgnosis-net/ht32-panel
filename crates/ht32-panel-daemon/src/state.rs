@@ -482,9 +482,11 @@ impl AppState {
             return true;
         }
 
-        // Only attempt reconnection every 30 seconds
+        // Rate-limit reopen attempts (configurable via lcd_reconnect_interval_ms).
         let mut last_attempt = self.last_lcd_reconnect.lock().unwrap();
-        if last_attempt.elapsed() < std::time::Duration::from_secs(30) {
+        if last_attempt.elapsed()
+            < std::time::Duration::from_millis(self.config.lcd_reconnect_interval_ms)
+        {
             return false;
         }
         *last_attempt = std::time::Instant::now();
