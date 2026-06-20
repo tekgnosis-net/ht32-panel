@@ -121,7 +121,7 @@ mod tests {
     use crate::rendering::Canvas;
 
     #[test]
-    fn render_layout_draws_text_and_bar_into_canvas() {
+    fn render_layout_draws_bar_into_canvas() {
         let mut canvas = Canvas::new(60, 20);
         canvas.set_background(0x000000);
         canvas.clear();

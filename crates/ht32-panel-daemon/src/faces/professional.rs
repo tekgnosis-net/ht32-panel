@@ -1603,8 +1603,11 @@ mod tests {
     }
 
     fn render_both(width: u32, height: u32) -> (Vec<u8>, Vec<u8>) {
+        render_both_with(width, height, sample())
+    }
+
+    fn render_both_with(width: u32, height: u32, data: SystemData) -> (Vec<u8>, Vec<u8>) {
         let face = ProfessionalFace::new();
-        let data = sample();
         let theme = Theme::from_preset("default");
         let comps = EnabledComplications::new();
 
@@ -1632,6 +1635,51 @@ mod tests {
     fn layout_matches_legacy_render_portrait() {
         let (legacy, via_layout) = render_both(170, 320);
         assert_eq!(legacy, via_layout, "portrait: layout output must equal render()");
+    }
+
+    // Returns a SystemData with display_ip set to the given string, all other
+    // fields identical to sample().
+    #[allow(clippy::field_reassign_with_default)]
+    fn sample_with_ip(ip: &str) -> SystemData {
+        let mut d = sample();
+        d.display_ip = Some(ip.to_string());
+        d
+    }
+
+    /// Portrait + long IPv6 → exercises the `rfind(':')`/`split_at` two-line path.
+    #[test]
+    fn layout_matches_legacy_render_portrait_ipv6_wrap() {
+        let data = sample_with_ip("2001:db8::dead:beef:1:2");
+        let (legacy, via_layout) = render_both_with(170, 320, data);
+        assert_eq!(
+            legacy,
+            via_layout,
+            "portrait IPv6 wrap: layout output must equal render()"
+        );
+    }
+
+    /// Landscape + short IPv4 → exercises the single-line landscape IP path.
+    #[test]
+    fn layout_matches_legacy_render_landscape_ipv4() {
+        let data = sample_with_ip("192.168.1.100");
+        let (legacy, via_layout) = render_both_with(320, 170, data);
+        assert_eq!(
+            legacy,
+            via_layout,
+            "landscape IPv4: layout output must equal render()"
+        );
+    }
+
+    /// Portrait + short IPv4 → exercises the portrait single-line IP path.
+    #[test]
+    fn layout_matches_legacy_render_portrait_ipv4() {
+        let data = sample_with_ip("192.168.1.100");
+        let (legacy, via_layout) = render_both_with(170, 320, data);
+        assert_eq!(
+            legacy,
+            via_layout,
+            "portrait IPv4: layout output must equal render()"
+        );
     }
 
     #[test]
