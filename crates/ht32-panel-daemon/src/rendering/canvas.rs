@@ -594,16 +594,21 @@ impl Canvas {
     /// Draws a wrap-around (oscilloscope) dual-series graph.
     ///
     /// Unlike `draw_dual_graph` which scrolls, this places each sample at a fixed column
-    /// determined by `count % 60`, creating an oscilloscope-style overwrite effect.
+    /// determined by its absolute index modulo 60, creating an oscilloscope-style overwrite
+    /// effect. `data1`/`data2` are the last `len` samples in natural scrolling order (oldest
+    /// first, newest last). `count` is the total number of samples ever pushed (monotonic).
+    ///
+    /// Column formula for window-index `k`: `s = ((count - len + k) % 60) as i32`.
+    /// Each retained sample keeps the same column as `count` and the window advance together.
     ///
     /// # Arguments
     /// * `x` - X position (left edge)
     /// * `y` - Y position (top edge)
     /// * `width` - Width of the graph area
     /// * `height` - Height of the graph area
-    /// * `data1` - First data series (newest sample is last; len ≤ 60)
-    /// * `data2` - Second data series (newest sample is last; len ≤ 60)
-    /// * `count` - Absolute sample count; determines where the write head sits
+    /// * `data1` - First data series in natural order (oldest first, newest last; len ≤ 60)
+    /// * `data2` - Second data series in natural order (oldest first, newest last; len ≤ 60)
+    /// * `count` - Total samples ever pushed; determines the write-head position
     /// * `max_value` - Maximum value for scaling (values above this are clamped)
     /// * `color1` - Color for first series
     /// * `color2` - Color for second series
@@ -662,11 +667,12 @@ impl Canvas {
         // W = 60 columns; bar_width scales to fit
         let bar_width = (width as f64 / 60.0).max(1.0);
 
-        // The slice is treated as a ring-buffer snapshot in canonical ring order:
-        // data[k] is already stored at ring slot k (0..len).  Placing bars at column
-        // s = k means bar positions are independent of `count`, so when count advances
-        // by 1 with the same data only the head-gap column changes (≤ 2 columns differ).
-        // `count` drives the head-gap position only.
+        // len is the window size (number of samples in the slice).
+        // Absolute index of window-index k: abs_k = count - len + k
+        // Column: s = abs_k % 60 = (count - len + k) % 60
+        // Use saturating_sub to handle warm-up phase where count < len.
+        let len = data1.len().max(data2.len()) as u64;
+        let base = count.saturating_sub(len);
 
         // Draw first series
         for (k, &value) in data1.iter().enumerate() {
@@ -674,7 +680,7 @@ impl Canvas {
             let bar_height = (normalized * height as f64) as u32;
 
             if bar_height > 0 {
-                let s = k as i32;
+                let s = ((base + k as u64) % 60) as i32;
                 let bar_x = x + (s as f64 * bar_width) as i32;
                 let bar_y = y + (height - bar_height) as i32;
                 self.fill_rect(
@@ -693,7 +699,7 @@ impl Canvas {
             let bar_height = (normalized * height as f64) as u32;
 
             if bar_height > 0 {
-                let s = k as i32;
+                let s = ((base + k as u64) % 60) as i32;
                 let bar_x = x + (s as f64 * bar_width) as i32;
                 let bar_y = y + (height - bar_height) as i32;
                 let overlay_width = (bar_width * 0.6).ceil() as u32;
@@ -708,10 +714,9 @@ impl Canvas {
         }
 
         // Write-head gap: blank a 1-px strip at the next column to be written.
-        // h = count % 60 is the ring slot about to be overwritten; clearing it here
-        // creates the "write cursor" visible on screen.
-        let h = (count % 60) as i32;
-        let gap_x = x + (h as f64 * bar_width) as i32;
+        // count % 60 is the ring slot about to be overwritten; clearing it creates
+        // the visible "write cursor" on screen.
+        let gap_x = x + (((count % 60) as f64) * bar_width) as i32;
         self.fill_rect(gap_x, y, 1, height, bg_color);
     }
 
@@ -751,27 +756,34 @@ mod tests {
     }
 
     /// Verifies that a non-zero sample at window-index k produces a non-background bar
-    /// at the expected pixel column (k * bar_width), independent of `count`.
+    /// at the expected pixel column `((count - len + k) % 60)`.
+    ///
+    /// With count=65, len=60, k=5: abs_index = 65-60+5 = 10; column = 10 % 60 = 10.
     #[test]
     fn wrap_graph_positive_placement() {
         let w = 60u32;
         let h = 20u32;
         let bg = 0x000000u32;
-        // Single non-zero sample at index 5 (50% of max_value → bar_height = h/2 = 10)
-        let mut d1 = vec![0.0f64; 60];
-        d1[5] = 4.5; // 4.5 / 9.0 = 0.5 → bar_height 10, color = 0xFF0000
-        let d2 = vec![0.0f64; 60];
+        let count: u64 = 65;
+        let len: u64 = 60;
+        // Non-zero sample at window-index k=5; all others zero.
+        let mut d1 = vec![0.0f64; len as usize];
+        d1[5] = 4.5; // 4.5 / 9.0 = 0.5 → bar_height = floor(0.5 * 20) = 10
+        let d2 = vec![0.0f64; len as usize];
 
         let mut c = Canvas::new(w, h);
         c.set_background(bg);
         c.clear();
-        c.draw_dual_graph_wrap(0, 0, w, h, &d1, &d2, 100, 9.0, 0xFF0000, 0x00FF00, bg);
+        c.draw_dual_graph_wrap(0, 0, w, h, &d1, &d2, count, 9.0, 0xFF0000, 0x00FF00, bg);
 
         let pixels = c.pixels();
-        // bar_width = 60.0 / 60.0 = 1.0, so column 5 is pixel x=5
-        // bar_height = floor(0.5 * 20) = 10, drawn from y=10..20 (bottom half)
-        let expected_col = 5usize;
-        // Check that at least one pixel in the expected column is non-background
+        // bar_width = 60.0 / 60.0 = 1.0
+        // expected column = (count - len + k) % 60 = (65 - 60 + 5) % 60 = 10
+        let k = 5usize;
+        let expected_col = ((count - len + k as u64) % 60) as usize;
+        assert_eq!(expected_col, 10, "formula sanity check");
+
+        // At least one pixel in the expected column must be non-background.
         let has_bar = (0..h as usize).any(|row| {
             let i = (row * w as usize + expected_col) * 4;
             let (r, g, b) = (pixels[i], pixels[i + 1], pixels[i + 2]);
@@ -782,24 +794,26 @@ mod tests {
             "expected a non-bg bar at column {expected_col} but found none"
         );
 
-        // Column 4 (adjacent, no data) should be background
-        let col4_is_bg = (0..h as usize).all(|row| {
-            let i = (row * w as usize + 4) * 4;
+        // The adjacent column (expected_col - 1) should be background (no data there).
+        let adj_col = expected_col - 1;
+        let adj_is_bg = (0..h as usize).all(|row| {
+            let i = (row * w as usize + adj_col) * 4;
             pixels[i] == 0 && pixels[i + 1] == 0 && pixels[i + 2] == 0
         });
         assert!(
-            col4_is_bg,
-            "column 4 should be background but has non-zero pixels"
+            adj_is_bg,
+            "column {adj_col} should be background but has non-zero pixels"
         );
     }
 
+    /// Determinism: same (data, count) always produces identical pixels.
     #[test]
-    fn wrap_graph_is_deterministic_and_head_local() {
+    fn wrap_graph_is_deterministic() {
         let w = 60u32;
         let h = 20u32;
         let d1: Vec<f64> = (0..60).map(|i| (i % 10) as f64).collect();
         let d2: Vec<f64> = vec![0.0; 60];
-        let mk = |count: u64| {
+        let render = |count: u64| {
             let mut c = Canvas::new(w, h);
             c.set_background(0);
             c.clear();
@@ -808,22 +822,47 @@ mod tests {
             );
             c.pixels().to_vec()
         };
-        // Determinism: same (data, count) -> identical pixels.
-        assert_eq!(mk(100), mk(100), "wrap graph not deterministic");
-        // Locality: count+1 changes only a few columns (the head region), not the whole row.
-        let a = mk(100);
-        let b = mk(101);
-        let differing_cols = (0..w as usize)
-            .filter(|&x| {
-                (0..h as usize).any(|y| {
-                    let i = (y * w as usize + x) * 4;
+        assert_eq!(render(100), render(100), "wrap graph not deterministic");
+    }
+
+    /// Head-locality: advancing window AND count together (as in production) changes only
+    /// the two columns near the write head, not the whole display.
+    ///
+    /// In production a new sample BOTH appends to the window (dropping the oldest) AND
+    /// increments count by 1.  Each retained sample keeps the same abs_index % 60 column.
+    /// Only the newly written column and the head-gap column change.
+    #[test]
+    fn wrap_graph_is_head_local_when_window_and_count_advance_together() {
+        let w = 60u32;
+        let h = 20u32;
+        let base: Vec<f64> = (0..60).map(|i| (i % 10) as f64).collect(); // full window
+        let zero = vec![0.0f64; 60];
+        let render = |data: &[f64], count: u64| {
+            let mut c = Canvas::new(w, h);
+            c.set_background(0);
+            c.clear();
+            c.draw_dual_graph_wrap(
+                0, 0, w, h, data, &zero, count, 9.0, 0xFF0000, 0x00FF00, 0x000000,
+            );
+            c.pixels().to_vec()
+        };
+        let a = render(&base, 100);
+        // One new sample: window drops oldest (front) + appends newest (back), count += 1.
+        let mut adv = base.clone();
+        adv.remove(0);
+        adv.push(7.0);
+        let b = render(&adv, 101);
+        let differing = (0..w as usize)
+            .filter(|&col| {
+                (0..h as usize).any(|row| {
+                    let i = (row * w as usize + col) * 4;
                     a[i..i + 3] != b[i..i + 3]
                 })
             })
             .count();
         assert!(
-            differing_cols <= 3,
-            "count+1 changed {differing_cols} columns; expected <= 3 (head-local)"
+            differing <= 3,
+            "advancing window+count together changed {differing} cols; expected <= 3"
         );
     }
 }
