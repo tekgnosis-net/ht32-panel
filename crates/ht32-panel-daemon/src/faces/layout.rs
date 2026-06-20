@@ -64,6 +64,29 @@ pub enum WidgetContent {
         /// Phase 2 flips this to true; false reproduces the legacy scrolling graph.
         wrap_around: bool,
     },
+    Line {
+        x1: i32,
+        y1: i32,
+        x2: i32,
+        y2: i32,
+        stroke: f32,
+        color: u32,
+    },
+    Circle {
+        cx: i32,
+        cy: i32,
+        r: u32,
+        color: u32,
+    },
+    Arc {
+        cx: i32,
+        cy: i32,
+        r: u32,
+        start_angle: f32,
+        end_angle: f32,
+        stroke: f32,
+        color: u32,
+    },
 }
 
 /// A positioned, typed widget with update metadata.
@@ -141,6 +164,24 @@ pub fn render_layout(canvas: &mut Canvas, layout: &Layout) {
                     *x, *y, *gw, *gh, &a_deque, &b_deque, *scale, *color_a, *color_b, *bg,
                 );
             }
+            WidgetContent::Line {
+                x1,
+                y1,
+                x2,
+                y2,
+                stroke,
+                color,
+            } => canvas.draw_line(*x1, *y1, *x2, *y2, *stroke, *color),
+            WidgetContent::Circle { cx, cy, r, color } => canvas.fill_circle(*cx, *cy, *r, *color),
+            WidgetContent::Arc {
+                cx,
+                cy,
+                r,
+                start_angle,
+                end_angle,
+                stroke,
+                color,
+            } => canvas.draw_arc(*cx, *cy, *r, *start_angle, *end_angle, *stroke, *color),
         }
     }
 }
@@ -149,6 +190,106 @@ pub fn render_layout(canvas: &mut Canvas, layout: &Layout) {
 mod tests {
     use super::*;
     use crate::rendering::Canvas;
+
+    #[test]
+    fn render_layout_draws_line_circle_arc() {
+        let mut canvas = Canvas::new(60, 60);
+        canvas.set_background(0x000000);
+        canvas.clear();
+        let mut layout = Layout::new();
+        layout.push(Widget {
+            id: "ln",
+            rect: Rect {
+                x: 0,
+                y: 0,
+                w: 60,
+                h: 60,
+            },
+            kind: ZoneKind::Static,
+            cadence: Cadence::OnChange,
+            content: WidgetContent::Line {
+                x1: 5,
+                y1: 30,
+                x2: 55,
+                y2: 30,
+                stroke: 3.0,
+                color: 0xFFFFFF,
+            },
+        });
+        layout.push(Widget {
+            id: "ci",
+            rect: Rect {
+                x: 0,
+                y: 0,
+                w: 60,
+                h: 60,
+            },
+            kind: ZoneKind::Static,
+            cadence: Cadence::OnChange,
+            content: WidgetContent::Circle {
+                cx: 30,
+                cy: 30,
+                r: 8,
+                color: 0xFF0000,
+            },
+        });
+        render_layout(&mut canvas, &layout);
+        let px = canvas.pixels();
+        let at = |x: usize, y: usize| {
+            let i = (y * 60 + x) * 4;
+            (px[i], px[i + 1], px[i + 2])
+        };
+        assert_eq!(at(30, 30), (255, 0, 0), "circle center red");
+        assert_eq!(at(30, 5), (0, 0, 0), "above the line stays bg");
+    }
+
+    #[test]
+    fn render_layout_draws_arc() {
+        // Arc: center (30,30), radius 10, stroke 3. Total extent = 10 + ceil(1.5) = 12.
+        // Canvas 60x60 ensures the arc fits entirely on-screen (30-12=18 >= 0).
+        // We draw a quarter-arc from 0 to PI/2 (right to bottom in screen coords).
+        // A pixel at (40, 30) — i.e. at (cx+r, cy) — should be on the arc path.
+        // The center (30, 30) itself should remain background (draw_arc is stroke-only).
+        use std::f32::consts::PI;
+        let mut canvas = Canvas::new(60, 60);
+        canvas.set_background(0x000000);
+        canvas.clear();
+        let mut layout = Layout::new();
+        layout.push(Widget {
+            id: "arc",
+            rect: Rect {
+                x: 0,
+                y: 0,
+                w: 60,
+                h: 60,
+            },
+            kind: ZoneKind::Static,
+            cadence: Cadence::OnChange,
+            content: WidgetContent::Arc {
+                cx: 30,
+                cy: 30,
+                r: 10,
+                start_angle: 0.0,
+                end_angle: 2.0 * PI,
+                stroke: 3.0,
+                color: 0x00FF00,
+            },
+        });
+        render_layout(&mut canvas, &layout);
+        let px = canvas.pixels();
+        let at = |x: usize, y: usize| {
+            let i = (y * 60 + x) * 4;
+            (px[i], px[i + 1], px[i + 2])
+        };
+        // A pixel on the rightmost arc edge should be green (non-background)
+        assert_ne!(
+            at(40, 30),
+            (0, 0, 0),
+            "arc path pixel should be non-background"
+        );
+        // The center should remain background (arc is stroke-only, not filled)
+        assert_eq!(at(30, 30), (0, 0, 0), "arc center stays background");
+    }
 
     #[test]
     fn render_layout_draws_bar_into_canvas() {
