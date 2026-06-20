@@ -84,7 +84,9 @@ pub struct Layout {
 
 impl Layout {
     pub fn new() -> Self {
-        Self { widgets: Vec::new() }
+        Self {
+            widgets: Vec::new(),
+        }
     }
     pub fn push(&mut self, widget: Widget) {
         self.widgets.push(widget);
@@ -95,21 +97,49 @@ impl Layout {
 pub fn render_layout(canvas: &mut Canvas, layout: &Layout) {
     for w in &layout.widgets {
         match &w.content {
-            WidgetContent::Text { text, x, y, size, color } => {
+            WidgetContent::Text {
+                text,
+                x,
+                y,
+                size,
+                color,
+            } => {
                 canvas.draw_text(*x, *y, text, *size, *color);
             }
-            WidgetContent::Bar { x, y, w: bw, h: bh, percent, fill, bg } => {
+            WidgetContent::Bar {
+                x,
+                y,
+                w: bw,
+                h: bh,
+                percent,
+                fill,
+                bg,
+            } => {
                 canvas.fill_rect(*x, *y, *bw, *bh, *bg);
                 let fill_w = ((*bw as f64 * (percent / 100.0)) as u32).min(*bw);
                 if fill_w > 0 {
                     canvas.fill_rect(*x, *y, fill_w, *bh, *fill);
                 }
             }
-            WidgetContent::DualSparkline { x, y, w: gw, h: gh, a, b, scale, color_a, color_b, bg, wrap_around: _ } => {
+            WidgetContent::DualSparkline {
+                x,
+                y,
+                w: gw,
+                h: gh,
+                a,
+                b,
+                scale,
+                color_a,
+                color_b,
+                bg,
+                wrap_around: _,
+            } => {
                 // Phase 1: always the legacy dual graph. Phase 2 adds the wrap-around path.
                 let a_deque: std::collections::VecDeque<f64> = a.iter().copied().collect();
                 let b_deque: std::collections::VecDeque<f64> = b.iter().copied().collect();
-                canvas.draw_dual_graph(*x, *y, *gw, *gh, &a_deque, &b_deque, *scale, *color_a, *color_b, *bg);
+                canvas.draw_dual_graph(
+                    *x, *y, *gw, *gh, &a_deque, &b_deque, *scale, *color_a, *color_b, *bg,
+                );
             }
         }
     }
@@ -127,15 +157,31 @@ mod tests {
         canvas.clear();
         let mut layout = Layout::new();
         layout.push(Widget {
-            id: "bar", rect: Rect { x: 0, y: 0, w: 40, h: 8 },
-            kind: ZoneKind::Dynamic, cadence: Cadence::EveryFrame,
-            content: WidgetContent::Bar { x: 0, y: 0, w: 40, h: 8, percent: 50.0, fill: 0xFFFFFF, bg: 0x202020 },
+            id: "bar",
+            rect: Rect {
+                x: 0,
+                y: 0,
+                w: 40,
+                h: 8,
+            },
+            kind: ZoneKind::Dynamic,
+            cadence: Cadence::EveryFrame,
+            content: WidgetContent::Bar {
+                x: 0,
+                y: 0,
+                w: 40,
+                h: 8,
+                percent: 50.0,
+                fill: 0xFFFFFF,
+                bg: 0x202020,
+            },
         });
         render_layout(&mut canvas, &layout);
         // Left half (filled) is white; right half is the bar background.
         let px = canvas.pixels(); // RGBA8, row-major, width*height*4
-        let at = |x: usize, y: usize| -> (u8,u8,u8) {
-            let i = (y * 60 + x) * 4; (px[i], px[i+1], px[i+2])
+        let at = |x: usize, y: usize| -> (u8, u8, u8) {
+            let i = (y * 60 + x) * 4;
+            (px[i], px[i + 1], px[i + 2])
         };
         assert_eq!(at(2, 4), (255, 255, 255), "filled portion white");
         assert_eq!(at(38, 4), (0x20, 0x20, 0x20), "unfilled portion = bar bg");

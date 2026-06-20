@@ -6,11 +6,11 @@
 
 #![allow(dead_code)]
 
-pub mod layout;
 mod arcs;
 mod ascii;
 mod clock;
 mod digits;
+pub mod layout;
 mod professional;
 
 pub use arcs::ArcsFace;

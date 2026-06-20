@@ -609,7 +609,9 @@ impl AppState {
         };
 
         if action == WriteAction::Demote {
-            warn!("LCD unresponsive after {count} consecutive failures; dropping handle to reconnect");
+            warn!(
+                "LCD unresponsive after {count} consecutive failures; dropping handle to reconnect"
+            );
             *self.lcd.lock().unwrap() = None; // drop LcdDevice -> releases the libusb/usbfs claim
         }
         if should_exit {
@@ -675,12 +677,10 @@ impl AppState {
             let theme = Theme::from_preset(&display.theme_name);
             let mut render = self.render.write().unwrap();
 
-            let maybe_layout = display.face.layout(
-                &render.canvas,
-                &system_data,
-                &theme,
-                &display.complications,
-            );
+            let maybe_layout =
+                display
+                    .face
+                    .layout(&render.canvas, &system_data, &theme, &display.complications);
             render.canvas.clear();
             match maybe_layout {
                 Some(lay) => faces::layout::render_layout(&mut render.canvas, &lay),
@@ -705,7 +705,8 @@ impl AppState {
             // Send to LCD; record the outcome for health tracking.
             let send_result = {
                 let lcd = self.lcd.lock().unwrap();
-                lcd.as_ref().map(|device| device.redraw(&render.framebuffer))
+                lcd.as_ref()
+                    .map(|device| device.redraw(&render.framebuffer))
             };
             match send_result {
                 Some(Ok(())) => self.on_write_success(),

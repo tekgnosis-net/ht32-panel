@@ -1628,13 +1628,19 @@ mod tests {
     #[test]
     fn layout_matches_legacy_render_landscape() {
         let (legacy, via_layout) = render_both(320, 170);
-        assert_eq!(legacy, via_layout, "landscape: layout output must equal render()");
+        assert_eq!(
+            legacy, via_layout,
+            "landscape: layout output must equal render()"
+        );
     }
 
     #[test]
     fn layout_matches_legacy_render_portrait() {
         let (legacy, via_layout) = render_both(170, 320);
-        assert_eq!(legacy, via_layout, "portrait: layout output must equal render()");
+        assert_eq!(
+            legacy, via_layout,
+            "portrait: layout output must equal render()"
+        );
     }
 
     // Returns a SystemData with display_ip set to the given string, all other
@@ -1652,8 +1658,7 @@ mod tests {
         let data = sample_with_ip("2001:db8::dead:beef:1:2");
         let (legacy, via_layout) = render_both_with(170, 320, data);
         assert_eq!(
-            legacy,
-            via_layout,
+            legacy, via_layout,
             "portrait IPv6 wrap: layout output must equal render()"
         );
     }
@@ -1664,8 +1669,7 @@ mod tests {
         let data = sample_with_ip("192.168.1.100");
         let (legacy, via_layout) = render_both_with(320, 170, data);
         assert_eq!(
-            legacy,
-            via_layout,
+            legacy, via_layout,
             "landscape IPv4: layout output must equal render()"
         );
     }
@@ -1676,8 +1680,7 @@ mod tests {
         let data = sample_with_ip("192.168.1.100");
         let (legacy, via_layout) = render_both_with(170, 320, data);
         assert_eq!(
-            legacy,
-            via_layout,
+            legacy, via_layout,
             "portrait IPv4: layout output must equal render()"
         );
     }
