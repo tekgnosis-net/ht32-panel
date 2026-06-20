@@ -90,7 +90,11 @@ fn format_rate_short(bytes_per_sec: f64) -> String {
     }
 }
 
-/// Arc draw spec: (cx, cy, r, start_angle, end_angle, stroke, color).
+/// A single arc draw spec: `(cx, cy, r, start_angle, end_angle, stroke, color)`.
+///
+/// Produced by [`ArcsFace::arc_gauge_specs`] and [`ArcsFace::activity_arc_specs`] so
+/// both `render()` (via `canvas.draw_arc`) and `layout()` (via `WidgetContent::Arc`)
+/// consume the identical floating-point computation, guaranteeing byte-identical output.
 type ArcSpec = (i32, i32, u32, f32, f32, f32, u32);
 
 /// A face using circular arc gauges for all metrics.
@@ -102,10 +106,10 @@ impl ArcsFace {
         Self
     }
 
-    /// Computes the arc draw specs for a circular gauge.
+    /// Computes the draw specs for a circular arc gauge without touching a canvas.
     ///
-    /// Returns the background arc spec, and optionally the foreground fill arc spec.
-    /// Both `render()` and `layout()` consume this to guarantee byte-identical f32 arithmetic.
+    /// Returns the background arc followed by the foreground fill arc (if percent > 0).
+    /// The gauge spans 135° → 405° (270° sweep, starting bottom-left).
     #[allow(clippy::too_many_arguments)]
     fn arc_gauge_specs(
         cx: i32,
@@ -146,9 +150,10 @@ impl ArcsFace {
         specs
     }
 
-    /// Computes the arc draw specs for a logarithmic activity arc.
+    /// Computes the draw specs for a small activity indicator arc without touching a canvas.
     ///
-    /// Returns the background arc spec, and optionally the foreground fill arc spec.
+    /// Uses logarithmic scaling for better visualization of varying rates.
+    /// Returns the background arc followed by the foreground fill arc (if value > 0 and max > 0).
     #[allow(clippy::too_many_arguments)]
     fn activity_arc_specs(
         cx: i32,
@@ -193,7 +198,7 @@ impl ArcsFace {
         specs
     }
 
-    /// Draws a circular arc gauge using the shared spec helper.
+    /// Draws a circular arc gauge using specs from [`Self::arc_gauge_specs`].
     #[allow(clippy::too_many_arguments)]
     fn draw_arc_gauge(
         canvas: &mut Canvas,
@@ -212,7 +217,7 @@ impl ArcsFace {
         }
     }
 
-    /// Draws a small activity indicator arc using the shared spec helper.
+    /// Draws a small activity indicator arc using specs from [`Self::activity_arc_specs`].
     #[allow(clippy::too_many_arguments)]
     fn draw_activity_arc(
         canvas: &mut Canvas,
@@ -239,111 +244,79 @@ impl ArcsFace {
         }
     }
 
-    /// Pushes arc gauge widget specs into the layout.
-    #[allow(clippy::too_many_arguments)]
-    fn push_arc_gauge(
+    /// Pushes arc specs as `WidgetContent::Arc` widgets into the layout.
+    ///
+    /// The `gauge_id` selects stable static widget IDs for the background (`_bg`) and
+    /// foreground (`_fg`) arcs.  The rect uses the gauge radius as bounding box.
+    fn push_arc_specs(
         layout: &mut Layout,
-        cx: i32,
-        cy: i32,
+        gauge_id: &'static str,
+        specs: Vec<ArcSpec>,
         radius: u32,
-        stroke_width: f32,
-        percent: f64,
-        fg_color: u32,
-        bg_color: u32,
-        id_bg: &'static str,
-        id_fg: &'static str,
     ) {
-        let specs =
-            ArcsFace::arc_gauge_specs(cx, cy, radius, stroke_width, percent, fg_color, bg_color);
-        let ids = [id_bg, id_fg];
-        for (i, (acx, acy, r, sa, ea, sw, col)) in specs.into_iter().enumerate() {
+        for (i, (cx, cy, r, start_angle, end_angle, stroke, color)) in specs.into_iter().enumerate()
+        {
+            let widget_id: &'static str = if i == 0 {
+                match gauge_id {
+                    "cpu_gauge" => "cpu_gauge_bg",
+                    "ram_gauge" => "ram_gauge_bg",
+                    "disk_r" => "disk_r_bg",
+                    "disk_w" => "disk_w_bg",
+                    "net_rx" => "net_rx_bg",
+                    "net_tx" => "net_tx_bg",
+                    _ => "arc_bg",
+                }
+            } else {
+                match gauge_id {
+                    "cpu_gauge" => "cpu_gauge_fg",
+                    "ram_gauge" => "ram_gauge_fg",
+                    "disk_r" => "disk_r_fg",
+                    "disk_w" => "disk_w_fg",
+                    "net_rx" => "net_rx_fg",
+                    "net_tx" => "net_tx_fg",
+                    _ => "arc_fg",
+                }
+            };
             layout.push(Widget {
-                id: ids[i],
+                id: widget_id,
                 rect: Rect {
-                    x: acx - r as i32,
-                    y: acy - r as i32,
-                    w: r * 2,
-                    h: r * 2,
+                    x: cx - radius as i32,
+                    y: cy - radius as i32,
+                    w: radius * 2,
+                    h: radius * 2,
                 },
                 kind: ZoneKind::Dynamic,
                 cadence: Cadence::EveryFrame,
                 content: WidgetContent::Arc {
-                    cx: acx,
-                    cy: acy,
+                    cx,
+                    cy,
                     r,
-                    start_angle: sa,
-                    end_angle: ea,
-                    stroke: sw,
-                    color: col,
+                    start_angle,
+                    end_angle,
+                    stroke,
+                    color,
                 },
             });
         }
     }
 
-    /// Pushes activity arc widget specs into the layout.
-    #[allow(clippy::too_many_arguments)]
-    fn push_activity_arc(
-        layout: &mut Layout,
-        cx: i32,
-        cy: i32,
-        radius: u32,
-        stroke_width: f32,
-        value: f64,
-        max_value: f64,
-        fg_color: u32,
-        bg_color: u32,
-        id_bg: &'static str,
-        id_fg: &'static str,
-    ) {
-        let specs = ArcsFace::activity_arc_specs(
-            cx,
-            cy,
-            radius,
-            stroke_width,
-            value,
-            max_value,
-            fg_color,
-            bg_color,
-        );
-        let ids = [id_bg, id_fg];
-        for (i, (acx, acy, r, sa, ea, sw, col)) in specs.into_iter().enumerate() {
-            layout.push(Widget {
-                id: ids[i],
-                rect: Rect {
-                    x: acx - r as i32,
-                    y: acy - r as i32,
-                    w: r * 2,
-                    h: r * 2,
-                },
-                kind: ZoneKind::Dynamic,
-                cadence: Cadence::EveryFrame,
-                content: WidgetContent::Arc {
-                    cx: acx,
-                    cy: acy,
-                    r,
-                    start_angle: sa,
-                    end_angle: ea,
-                    stroke: sw,
-                    color: col,
-                },
-            });
-        }
-    }
-
-    /// Builds the typed-widget layout, covering ALL configs including ANALOGUE time.
+    /// Builds the typed-widget layout, covering ALL configs including ANALOGUE
+    /// time (which emits `Line`/`Arc`/`Circle` widgets from `mini_analog_clock_draws`).
     fn build_layout(
         &self,
         canvas: &Canvas,
         data: &SystemData,
         theme: &Theme,
         comp: &EnabledComplications,
-    ) -> Layout {
+    ) -> Option<Layout> {
         let colors = FaceColors::from_theme(theme);
         let (width, height) = canvas.dimensions();
         let portrait = width < 200;
+        let mut layout = Layout::new();
 
         let is_on = |id: &str| comp.is_enabled(self.name(), id, true);
 
+        // Get time format option
         let time_format = comp
             .get_option(
                 self.name(),
@@ -353,6 +326,7 @@ impl ArcsFace {
             .map(|s| s.as_str())
             .unwrap_or(time_formats::DIGITAL_24H);
 
+        // Get date format option
         let date_format = comp
             .get_option(
                 self.name(),
@@ -362,17 +336,19 @@ impl ArcsFace {
             .map(|s| s.as_str())
             .unwrap_or(date_formats::ISO);
 
-        let mut layout = Layout::new();
-
         if portrait {
+            // Portrait layout: CPU, RAM stacked vertically, disk/net on separate rows at bottom
             let margin = 6;
             let center_x = width as i32 / 2;
 
+            // Calculate vertical layout to use full height
+            // Reserve space: top text (~30px), bottom text (~36px for 3 lines), remaining for arcs
             let top_text_height = 28_i32;
             let bottom_text_height = 36_i32;
             let available_height =
                 height as i32 - margin * 2 - top_text_height - bottom_text_height;
 
+            // Large arcs (CPU, RAM) get 30% each, two small arc rows get 20% each
             let large_arc_height = (available_height * 30) / 100;
             let small_arc_height = (available_height * 20) / 100;
 
@@ -386,6 +362,7 @@ impl ArcsFace {
             // Top section: Time and date
             if is_on(complication_names::TIME) {
                 if time_format == time_formats::ANALOGUE {
+                    // Draw small analog clock centered
                     let clock_radius = 10_u32;
                     let clock_cx = width as i32 / 2;
                     let clock_cy = y + clock_radius as i32;
@@ -419,11 +396,11 @@ impl ArcsFace {
                 } else {
                     let time_str = data.format_time(time_format);
                     let time_width = canvas.text_width(&time_str, FONT_NORMAL);
-                    let tx = (width as i32 - time_width) / 2;
+                    let time_x = (width as i32 - time_width) / 2;
                     layout.push(Widget {
                         id: "time",
                         rect: Rect {
-                            x: tx,
+                            x: time_x,
                             y,
                             w: time_width.max(0) as u32,
                             h: canvas.line_height(FONT_NORMAL).max(0) as u32,
@@ -432,7 +409,7 @@ impl ArcsFace {
                         cadence: Cadence::Seconds(60),
                         content: WidgetContent::Text {
                             text: time_str,
-                            x: tx,
+                            x: time_x,
                             y,
                             size: FONT_NORMAL,
                             color: colors.text,
@@ -445,11 +422,11 @@ impl ArcsFace {
             if is_on(complication_names::DATE) {
                 if let Some(date_str) = data.format_date(date_format) {
                     let date_width = canvas.text_width(&date_str, FONT_TINY);
-                    let dx = (width as i32 - date_width) / 2;
+                    let date_x = (width as i32 - date_width) / 2;
                     layout.push(Widget {
                         id: "date",
                         rect: Rect {
-                            x: dx,
+                            x: date_x,
                             y,
                             w: date_width.max(0) as u32,
                             h: canvas.line_height(FONT_TINY).max(0) as u32,
@@ -458,7 +435,7 @@ impl ArcsFace {
                         cadence: Cadence::Seconds(60),
                         content: WidgetContent::Text {
                             text: date_str,
-                            x: dx,
+                            x: date_x,
                             y,
                             size: FONT_TINY,
                             color: colors.dim,
@@ -470,17 +447,19 @@ impl ArcsFace {
 
             // CPU arc (centered)
             let cpu_cy = y + large_radius as i32 + 2;
-            Self::push_arc_gauge(
+            Self::push_arc_specs(
                 &mut layout,
-                center_x,
-                cpu_cy,
+                "cpu_gauge",
+                Self::arc_gauge_specs(
+                    center_x,
+                    cpu_cy,
+                    large_radius,
+                    large_stroke,
+                    data.cpu_percent,
+                    colors.primary,
+                    colors.arc_bg,
+                ),
                 large_radius,
-                large_stroke,
-                data.cpu_percent,
-                colors.primary,
-                colors.arc_bg,
-                "cpu_gauge_bg",
-                "cpu_gauge_fg",
             );
             layout.push(Widget {
                 id: "cpu_label",
@@ -524,17 +503,19 @@ impl ArcsFace {
 
             // RAM arc (centered)
             let ram_cy = y + large_radius as i32 + 2;
-            Self::push_arc_gauge(
+            Self::push_arc_specs(
                 &mut layout,
-                center_x,
-                ram_cy,
+                "ram_gauge",
+                Self::arc_gauge_specs(
+                    center_x,
+                    ram_cy,
+                    large_radius,
+                    large_stroke,
+                    data.ram_percent,
+                    colors.secondary,
+                    colors.arc_bg,
+                ),
                 large_radius,
-                large_stroke,
-                data.ram_percent,
-                colors.secondary,
-                colors.arc_bg,
-                "ram_gauge_bg",
-                "ram_gauge_fg",
             );
             layout.push(Widget {
                 id: "ram_label",
@@ -582,18 +563,20 @@ impl ArcsFace {
             if is_on(complication_names::DISK_IO) {
                 let disk_cy = y + small_radius as i32 + 2;
                 let disk_r_cx = center_x - small_radius as i32 - 6;
-                Self::push_activity_arc(
+                Self::push_arc_specs(
                     &mut layout,
-                    disk_r_cx,
-                    disk_cy,
+                    "disk_r",
+                    Self::activity_arc_specs(
+                        disk_r_cx,
+                        disk_cy,
+                        small_radius,
+                        small_stroke,
+                        data.disk_read_rate,
+                        io_max,
+                        colors.primary,
+                        colors.arc_bg,
+                    ),
                     small_radius,
-                    small_stroke,
-                    data.disk_read_rate,
-                    io_max,
-                    colors.primary,
-                    colors.arc_bg,
-                    "disk_r_bg",
-                    "disk_r_fg",
                 );
                 let disk_r_text = format_rate_short(data.disk_read_rate);
                 let disk_r_w = canvas.text_width(&disk_r_text, FONT_TINY);
@@ -635,18 +618,20 @@ impl ArcsFace {
                 });
 
                 let disk_w_cx = center_x + small_radius as i32 + 6;
-                Self::push_activity_arc(
+                Self::push_arc_specs(
                     &mut layout,
-                    disk_w_cx,
-                    disk_cy,
+                    "disk_w",
+                    Self::activity_arc_specs(
+                        disk_w_cx,
+                        disk_cy,
+                        small_radius,
+                        small_stroke,
+                        data.disk_write_rate,
+                        io_max,
+                        colors.primary,
+                        colors.arc_bg,
+                    ),
                     small_radius,
-                    small_stroke,
-                    data.disk_write_rate,
-                    io_max,
-                    colors.primary,
-                    colors.arc_bg,
-                    "disk_w_bg",
-                    "disk_w_fg",
                 );
                 let disk_w_text = format_rate_short(data.disk_write_rate);
                 let disk_w_w = canvas.text_width(&disk_w_text, FONT_TINY);
@@ -693,18 +678,20 @@ impl ArcsFace {
             if is_on(complication_names::NETWORK) {
                 let net_cy = y + small_radius as i32 + 2;
                 let net_rx_cx = center_x - small_radius as i32 - 6;
-                Self::push_activity_arc(
+                Self::push_arc_specs(
                     &mut layout,
-                    net_rx_cx,
-                    net_cy,
+                    "net_rx",
+                    Self::activity_arc_specs(
+                        net_rx_cx,
+                        net_cy,
+                        small_radius,
+                        small_stroke,
+                        data.net_rx_rate,
+                        io_max,
+                        colors.secondary,
+                        colors.arc_bg,
+                    ),
                     small_radius,
-                    small_stroke,
-                    data.net_rx_rate,
-                    io_max,
-                    colors.secondary,
-                    colors.arc_bg,
-                    "net_rx_bg",
-                    "net_rx_fg",
                 );
                 let net_rx_text = format_rate_short(data.net_rx_rate);
                 let net_rx_w = canvas.text_width(&net_rx_text, FONT_TINY);
@@ -746,18 +733,20 @@ impl ArcsFace {
                 });
 
                 let net_tx_cx = center_x + small_radius as i32 + 6;
-                Self::push_activity_arc(
+                Self::push_arc_specs(
                     &mut layout,
-                    net_tx_cx,
-                    net_cy,
+                    "net_tx",
+                    Self::activity_arc_specs(
+                        net_tx_cx,
+                        net_cy,
+                        small_radius,
+                        small_stroke,
+                        data.net_tx_rate,
+                        io_max,
+                        colors.secondary,
+                        colors.arc_bg,
+                    ),
                     small_radius,
-                    small_stroke,
-                    data.net_tx_rate,
-                    io_max,
-                    colors.secondary,
-                    colors.arc_bg,
-                    "net_tx_bg",
-                    "net_tx_fg",
                 );
                 let net_tx_text = format_rate_short(data.net_tx_rate);
                 let net_tx_w = canvas.text_width(&net_tx_text, FONT_TINY);
@@ -802,12 +791,13 @@ impl ArcsFace {
             // Bottom text: hostname, uptime, and IP on separate lines
             let bottom_y = height as i32 - margin - 46;
 
+            // Hostname centered on its own line
             let host_width = canvas.text_width(&data.hostname, FONT_TINY);
-            let hx = (width as i32 - host_width) / 2;
+            let host_x = (width as i32 - host_width) / 2;
             layout.push(Widget {
                 id: "hostname",
                 rect: Rect {
-                    x: hx,
+                    x: host_x,
                     y: bottom_y,
                     w: host_width.max(0) as u32,
                     h: canvas.line_height(FONT_TINY).max(0) as u32,
@@ -816,13 +806,14 @@ impl ArcsFace {
                 cadence: Cadence::OnChange,
                 content: WidgetContent::Text {
                     text: data.hostname.clone(),
-                    x: hx,
+                    x: host_x,
                     y: bottom_y,
                     size: FONT_TINY,
                     color: colors.dim,
                 },
             });
 
+            // Uptime on its own line
             let uptime_text = format!("Up: {}", data.uptime);
             layout.push(Widget {
                 id: "uptime",
@@ -843,6 +834,7 @@ impl ArcsFace {
                 },
             });
 
+            // IP on the next line
             if is_on(complication_names::IP_ADDRESS) {
                 if let Some(ref ip) = data.display_ip {
                     layout.push(Widget {
@@ -878,6 +870,7 @@ impl ArcsFace {
             // Complication: Time
             if is_on(complication_names::TIME) {
                 if time_format == time_formats::ANALOGUE {
+                    // Draw small analog clock on the left
                     let clock_radius = 12_u32;
                     let clock_cx = margin + clock_radius as i32;
                     let clock_cy = top_y + clock_radius as i32;
@@ -980,17 +973,19 @@ impl ArcsFace {
             let cpu_cx = margin + gauge_radius as i32 + 10;
 
             // Base element: CPU gauge (always shown)
-            Self::push_arc_gauge(
+            Self::push_arc_specs(
                 &mut layout,
-                cpu_cx,
-                gauge_y,
+                "cpu_gauge",
+                Self::arc_gauge_specs(
+                    cpu_cx,
+                    gauge_y,
+                    gauge_radius,
+                    stroke,
+                    data.cpu_percent,
+                    colors.primary,
+                    colors.arc_bg,
+                ),
                 gauge_radius,
-                stroke,
-                data.cpu_percent,
-                colors.primary,
-                colors.arc_bg,
-                "cpu_gauge_bg",
-                "cpu_gauge_fg",
             );
             layout.push(Widget {
                 id: "cpu_label",
@@ -1033,17 +1028,19 @@ impl ArcsFace {
 
             // Base element: RAM gauge (always shown)
             let ram_cx = cpu_cx + gauge_radius as i32 * 2 + 30;
-            Self::push_arc_gauge(
+            Self::push_arc_specs(
                 &mut layout,
-                ram_cx,
-                gauge_y,
+                "ram_gauge",
+                Self::arc_gauge_specs(
+                    ram_cx,
+                    gauge_y,
+                    gauge_radius,
+                    stroke,
+                    data.ram_percent,
+                    colors.secondary,
+                    colors.arc_bg,
+                ),
                 gauge_radius,
-                stroke,
-                data.ram_percent,
-                colors.secondary,
-                colors.arc_bg,
-                "ram_gauge_bg",
-                "ram_gauge_fg",
             );
             layout.push(Widget {
                 id: "ram_label",
@@ -1091,19 +1088,22 @@ impl ArcsFace {
 
             // Complication: Disk gauges
             if is_on(complication_names::DISK_IO) {
-                Self::push_activity_arc(
+                Self::push_arc_specs(
                     &mut layout,
-                    disk_r_cx,
-                    disk_cy,
+                    "disk_r",
+                    Self::activity_arc_specs(
+                        disk_r_cx,
+                        disk_cy,
+                        small_radius,
+                        small_stroke,
+                        data.disk_read_rate,
+                        io_max,
+                        colors.primary,
+                        colors.arc_bg,
+                    ),
                     small_radius,
-                    small_stroke,
-                    data.disk_read_rate,
-                    io_max,
-                    colors.primary,
-                    colors.arc_bg,
-                    "disk_r_bg",
-                    "disk_r_fg",
                 );
+                // Number centered in dial
                 let disk_r_text = format_rate_short(data.disk_read_rate);
                 let disk_r_w = canvas.text_width(&disk_r_text, FONT_TINY);
                 layout.push(Widget {
@@ -1124,6 +1124,7 @@ impl ArcsFace {
                         color: colors.text,
                     },
                 });
+                // Letter in bottom open space
                 layout.push(Widget {
                     id: "disk_r_lbl",
                     rect: Rect {
@@ -1144,19 +1145,22 @@ impl ArcsFace {
                 });
 
                 let disk_w_cx = disk_r_cx + small_radius as i32 * 2 + 12;
-                Self::push_activity_arc(
+                Self::push_arc_specs(
                     &mut layout,
-                    disk_w_cx,
-                    disk_cy,
+                    "disk_w",
+                    Self::activity_arc_specs(
+                        disk_w_cx,
+                        disk_cy,
+                        small_radius,
+                        small_stroke,
+                        data.disk_write_rate,
+                        io_max,
+                        colors.primary,
+                        colors.arc_bg,
+                    ),
                     small_radius,
-                    small_stroke,
-                    data.disk_write_rate,
-                    io_max,
-                    colors.primary,
-                    colors.arc_bg,
-                    "disk_w_bg",
-                    "disk_w_fg",
                 );
+                // Number centered in dial
                 let disk_w_text = format_rate_short(data.disk_write_rate);
                 let disk_w_w = canvas.text_width(&disk_w_text, FONT_TINY);
                 layout.push(Widget {
@@ -1177,6 +1181,7 @@ impl ArcsFace {
                         color: colors.text,
                     },
                 });
+                // Letter in bottom open space
                 layout.push(Widget {
                     id: "disk_w_lbl",
                     rect: Rect {
@@ -1200,19 +1205,22 @@ impl ArcsFace {
             // Complication: Network gauges
             let net_cy = disk_cy + small_radius as i32 * 2 + 12;
             if is_on(complication_names::NETWORK) {
-                Self::push_activity_arc(
+                Self::push_arc_specs(
                     &mut layout,
-                    disk_r_cx,
-                    net_cy,
+                    "net_rx",
+                    Self::activity_arc_specs(
+                        disk_r_cx,
+                        net_cy,
+                        small_radius,
+                        small_stroke,
+                        data.net_rx_rate,
+                        io_max,
+                        colors.secondary,
+                        colors.arc_bg,
+                    ),
                     small_radius,
-                    small_stroke,
-                    data.net_rx_rate,
-                    io_max,
-                    colors.secondary,
-                    colors.arc_bg,
-                    "net_rx_bg",
-                    "net_rx_fg",
                 );
+                // Number centered in dial
                 let net_rx_text = format_rate_short(data.net_rx_rate);
                 let net_rx_w = canvas.text_width(&net_rx_text, FONT_TINY);
                 layout.push(Widget {
@@ -1233,6 +1241,7 @@ impl ArcsFace {
                         color: colors.text,
                     },
                 });
+                // Arrow in bottom open space
                 layout.push(Widget {
                     id: "net_rx_lbl",
                     rect: Rect {
@@ -1253,19 +1262,22 @@ impl ArcsFace {
                 });
 
                 let net_w_cx = disk_r_cx + small_radius as i32 * 2 + 12;
-                Self::push_activity_arc(
+                Self::push_arc_specs(
                     &mut layout,
-                    net_w_cx,
-                    net_cy,
+                    "net_tx",
+                    Self::activity_arc_specs(
+                        net_w_cx,
+                        net_cy,
+                        small_radius,
+                        small_stroke,
+                        data.net_tx_rate,
+                        io_max,
+                        colors.secondary,
+                        colors.arc_bg,
+                    ),
                     small_radius,
-                    small_stroke,
-                    data.net_tx_rate,
-                    io_max,
-                    colors.secondary,
-                    colors.arc_bg,
-                    "net_tx_bg",
-                    "net_tx_fg",
                 );
+                // Number centered in dial
                 let net_tx_text = format_rate_short(data.net_tx_rate);
                 let net_tx_w = canvas.text_width(&net_tx_text, FONT_TINY);
                 layout.push(Widget {
@@ -1286,6 +1298,7 @@ impl ArcsFace {
                         color: colors.text,
                     },
                 });
+                // Arrow in bottom open space
                 layout.push(Widget {
                     id: "net_tx_lbl",
                     rect: Rect {
@@ -1355,7 +1368,7 @@ impl ArcsFace {
             }
         }
 
-        layout
+        Some(layout)
     }
 }
 
@@ -1949,7 +1962,7 @@ impl Face for ArcsFace {
         theme: &Theme,
         comp: &EnabledComplications,
     ) -> Option<crate::faces::layout::Layout> {
-        Some(self.build_layout(canvas, data, theme, comp))
+        self.build_layout(canvas, data, theme, comp)
     }
 }
 
@@ -1962,6 +1975,7 @@ mod tests {
     use crate::rendering::Canvas;
     use crate::sensors::data::SystemData;
 
+    /// Deterministic sample data so both render paths see identical input.
     #[allow(clippy::field_reassign_with_default)]
     fn sample() -> SystemData {
         let mut d = SystemData::default();
@@ -1978,7 +1992,6 @@ mod tests {
         d
     }
 
-    #[allow(clippy::field_reassign_with_default)]
     fn sample_with_ip(ip: &str) -> SystemData {
         let mut d = sample();
         d.display_ip = Some(ip.to_string());
@@ -2062,6 +2075,13 @@ mod tests {
     fn arcs_layout_matches_render_portrait_with_ip() {
         let (legacy, via_layout) = render_both_with(170, 320, sample_with_ip("192.168.1.100"));
         assert_eq!(legacy, via_layout, "arcs portrait mismatch (IPv4)");
+    }
+
+    #[test]
+    fn arcs_layout_matches_render_portrait_ipv6() {
+        let (legacy, via_layout) =
+            render_both_with(170, 320, sample_with_ip("2001:db8::dead:beef:1:2"));
+        assert_eq!(legacy, via_layout, "arcs portrait mismatch (IPv6)");
     }
 
     #[test]
