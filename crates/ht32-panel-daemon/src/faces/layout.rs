@@ -70,6 +70,7 @@ pub enum WidgetContent {
         color_b: u32,
         bg: u32,
         /// Phase 2 flips this to true; false reproduces the legacy scrolling graph.
+        #[allow(dead_code)]
         wrap_around: bool,
     },
     Line {
@@ -99,6 +100,7 @@ pub enum WidgetContent {
 
 /// A positioned, typed widget with update metadata.
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 pub struct Widget {
     pub id: &'static str,
     pub rect: Rect,

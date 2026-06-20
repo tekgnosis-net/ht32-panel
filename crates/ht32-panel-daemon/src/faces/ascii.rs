@@ -62,8 +62,6 @@ struct FaceColors {
     text: u32,
     /// Dimmed text color (uptime, IPs)
     dim: u32,
-    /// Graph background
-    bar_bg: u32,
     /// Disk graph fill color
     bar_disk: u32,
     /// Network graph fill color
@@ -76,7 +74,6 @@ impl FaceColors {
             highlight: theme.primary,
             text: theme.text,
             dim: dim_color(theme.text, theme.background, 0.7), // Higher for better contrast
-            bar_bg: dim_color(theme.primary, theme.background, 0.2),
             bar_disk: dim_color(theme.primary, theme.secondary, 0.5),
             bar_net: theme.secondary,
         }

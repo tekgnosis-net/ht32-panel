@@ -89,11 +89,9 @@ impl FaceColors {
 
 /// Font sizes.
 const FONT_LARGE: f32 = 16.0;
-const FONT_NORMAL: f32 = 14.0;
 const FONT_SMALL: f32 = 12.0;
 
 /// Progress bar dimensions.
-const BAR_WIDTH: u32 = 120;
 const BAR_HEIGHT: u32 = 10;
 
 /// Graph dimensions.

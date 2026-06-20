@@ -4,8 +4,6 @@
 //! Each face supports configurable complications that allow users to
 //! enable or disable specific display elements.
 
-#![allow(dead_code)]
-
 mod arcs;
 mod ascii;
 mod clock;
@@ -753,6 +751,7 @@ impl EnabledComplications {
     }
 
     /// Gets the full configuration for a complication.
+    #[allow(dead_code)]
     pub fn get_config(&self, face: &str, complication_id: &str) -> Option<&ComplicationConfig> {
         self.face_complications
             .get(face)
@@ -828,6 +827,7 @@ pub fn available_faces() -> Vec<FaceInfo> {
 }
 
 /// Returns available complications for a face by name.
+#[allow(dead_code)]
 pub fn face_complications(name: &str) -> Vec<Complication> {
     create_face(name)
         .map(|f| f.available_complications())

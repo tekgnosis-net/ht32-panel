@@ -31,8 +31,6 @@ fn dim_color(color: u32, background: u32, factor: f32) -> u32 {
 struct FaceColors {
     /// LCD segment "on" color
     segment_on: u32,
-    /// LCD segment "off" color (ghost segments)
-    segment_off: u32,
     /// Label text color
     label: u32,
     /// Divider line color
@@ -43,7 +41,6 @@ impl FaceColors {
     fn from_theme(theme: &Theme) -> Self {
         Self {
             segment_on: theme.primary,
-            segment_off: dim_color(theme.primary, theme.background, 0.2),
             label: dim_color(theme.text, theme.background, 0.7), // Higher for better contrast
             divider: dim_color(theme.primary, theme.background, 0.35),
         }
@@ -63,39 +60,6 @@ impl DigitsFace {
     /// Creates a new digits face.
     pub fn new() -> Self {
         Self
-    }
-
-    /// Draws a horizontal divider line.
-    fn draw_divider(canvas: &mut Canvas, y: i32, width: u32, margin: i32, color: u32) {
-        canvas.fill_rect(margin, y, width - (margin * 2) as u32, 1, color);
-    }
-
-    /// Draws a labeled value in the segmented LCD style.
-    fn draw_segment_value(
-        canvas: &mut Canvas,
-        x: i32,
-        y: i32,
-        label: &str,
-        value: &str,
-        label_color: u32,
-        value_color: u32,
-    ) {
-        canvas.draw_text(x, y, label, FONT_SMALL, label_color);
-        canvas.draw_text(x, y + 10, value, FONT_LARGE, value_color);
-    }
-
-    /// Draws a labeled value with medium fonts for landscape CPU/RAM row.
-    fn draw_segment_value_medium(
-        canvas: &mut Canvas,
-        x: i32,
-        y: i32,
-        label: &str,
-        value: &str,
-        label_color: u32,
-        value_color: u32,
-    ) {
-        canvas.draw_text(x, y, label, FONT_SMALL, label_color);
-        canvas.draw_text(x, y + 12, value, 26.0, value_color); // Between FONT_LARGE (20) and FONT_TIME (32)
     }
 
     /// Pushes a divider Bar widget (100%-filled = solid fill_rect, byte-identical).
