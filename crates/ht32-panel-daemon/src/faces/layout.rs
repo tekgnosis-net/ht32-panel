@@ -41,6 +41,14 @@ pub enum WidgetContent {
         size: f32,
         color: u32,
     },
+    TextScaled {
+        x: i32,
+        y: i32,
+        text: String,
+        size: f32,
+        color: u32,
+        x_scale: f32,
+    },
     Bar {
         x: i32,
         y: i32,
@@ -128,6 +136,16 @@ pub fn render_layout(canvas: &mut Canvas, layout: &Layout) {
                 color,
             } => {
                 canvas.draw_text(*x, *y, text, *size, *color);
+            }
+            WidgetContent::TextScaled {
+                x,
+                y,
+                text,
+                size,
+                color,
+                x_scale,
+            } => {
+                canvas.draw_text_scaled(*x, *y, text, *size, *color, *x_scale);
             }
             WidgetContent::Bar {
                 x,
@@ -248,6 +266,47 @@ mod tests {
             "line pixel left of circle is white"
         );
         assert_eq!(at(30, 5), (0, 0, 0), "above the line stays bg");
+    }
+
+    #[test]
+    fn render_layout_draws_text_scaled() {
+        // A TextScaled widget must forward to canvas.draw_text_scaled and paint
+        // non-background pixels. Use a wide-enough canvas so the scaled glyphs fit
+        // within the debug_assert bounds.
+        let mut canvas = Canvas::new(120, 40);
+        canvas.set_background(0x000000);
+        canvas.clear();
+        let mut layout = Layout::new();
+        layout.push(Widget {
+            id: "ts",
+            rect: Rect {
+                x: 0,
+                y: 0,
+                w: 120,
+                h: 40,
+            },
+            kind: ZoneKind::Static,
+            cadence: Cadence::OnChange,
+            content: WidgetContent::TextScaled {
+                x: 4,
+                y: 4,
+                text: "88:88".to_string(),
+                size: 24.0,
+                color: 0xFFFFFF,
+                x_scale: 0.5,
+            },
+        });
+        render_layout(&mut canvas, &layout);
+        let px = canvas.pixels();
+        // At least one painted pixel must be non-background, proving the scaled
+        // text was drawn into the canvas.
+        let any_painted = px
+            .chunks_exact(4)
+            .any(|p| p[0] != 0 || p[1] != 0 || p[2] != 0);
+        assert!(
+            any_painted,
+            "TextScaled widget should paint non-background pixels"
+        );
     }
 
     #[test]
