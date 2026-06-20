@@ -597,8 +597,8 @@ impl ProfessionalFace {
                         color_a: colors.bar_disk_read,
                         color_b: colors.bar_disk_write,
                         bg: colors.bar_bg,
-                        wrap_around: false,
-                        count: 0,
+                        wrap_around: true,
+                        count: data.disk_sample_count,
                     },
                 });
                 y += GRAPH_HEIGHT as i32 + section_spacing;
@@ -690,8 +690,8 @@ impl ProfessionalFace {
                         color_a: colors.bar_net_rx,
                         color_b: colors.bar_net_tx,
                         bg: colors.bar_bg,
-                        wrap_around: false,
-                        count: 0,
+                        wrap_around: true,
+                        count: data.net_sample_count,
                     },
                 });
             }
@@ -1052,8 +1052,8 @@ impl ProfessionalFace {
                         color_a: colors.bar_disk_read,
                         color_b: colors.bar_disk_write,
                         bg: colors.bar_bg,
-                        wrap_around: false,
-                        count: 0,
+                        wrap_around: true,
+                        count: data.disk_sample_count,
                     },
                 });
                 y += GRAPH_HEIGHT as i32 + 4;
@@ -1145,8 +1145,8 @@ impl ProfessionalFace {
                         color_a: colors.bar_net_rx,
                         color_b: colors.bar_net_tx,
                         bg: colors.bar_bg,
-                        wrap_around: false,
-                        count: 0,
+                        wrap_around: true,
+                        count: data.net_sample_count,
                     },
                 });
             }
@@ -1211,10 +1211,15 @@ mod tests {
         d.cpu_temp = Some(45.0);
         d.hour = 18;
         d.minute = 45;
-        d.disk_read_history = vec![0.1, 0.5, 0.9, 0.3].into();
-        d.disk_write_history = vec![0.2, 0.4, 0.1, 0.6].into();
-        d.net_rx_history = vec![0.3, 0.7, 0.2, 0.8].into();
-        d.net_tx_history = vec![0.1, 0.2, 0.5, 0.4].into();
+        // Use byte/sec values above the 1 MB/s minimum scale so bars are visible.
+        d.disk_read_history = vec![1_000_000.0, 5_000_000.0, 9_000_000.0, 3_000_000.0].into();
+        d.disk_write_history = vec![2_000_000.0, 4_000_000.0, 1_000_000.0, 6_000_000.0].into();
+        d.disk_history = vec![3_000_000.0, 9_000_000.0, 10_000_000.0, 9_000_000.0].into();
+        d.net_rx_history = vec![3_000_000.0, 7_000_000.0, 2_000_000.0, 8_000_000.0].into();
+        d.net_tx_history = vec![1_000_000.0, 2_000_000.0, 5_000_000.0, 4_000_000.0].into();
+        d.net_history = vec![4_000_000.0, 9_000_000.0, 7_000_000.0, 12_000_000.0].into();
+        d.disk_sample_count = 100;
+        d.net_sample_count = 100;
         d
     }
 
@@ -1240,7 +1245,7 @@ mod tests {
         let via_layout = render_both(320, 170);
         assert_eq!(
             pixel_hash(&via_layout),
-            10701061824176020197,
+            8884750214889891746,
             "golden drift: layout_matches_legacy_render_landscape"
         );
     }
@@ -1250,7 +1255,7 @@ mod tests {
         let via_layout = render_both(170, 320);
         assert_eq!(
             pixel_hash(&via_layout),
-            14665955793822149985,
+            7796880964961813537,
             "golden drift: layout_matches_legacy_render_portrait"
         );
     }
@@ -1271,7 +1276,7 @@ mod tests {
         let via_layout = render_both_with(170, 320, data);
         assert_eq!(
             pixel_hash(&via_layout),
-            15172485710738808832,
+            2761362447231588128,
             "golden drift: layout_matches_legacy_render_portrait_ipv6_wrap"
         );
     }
@@ -1283,7 +1288,7 @@ mod tests {
         let via_layout = render_both_with(320, 170, data);
         assert_eq!(
             pixel_hash(&via_layout),
-            5058213149468129392,
+            5235748094122013163,
             "golden drift: layout_matches_legacy_render_landscape_ipv4"
         );
     }
@@ -1295,7 +1300,7 @@ mod tests {
         let via_layout = render_both_with(170, 320, data);
         assert_eq!(
             pixel_hash(&via_layout),
-            14830570311864835861,
+            11699956274353401413,
             "golden drift: layout_matches_legacy_render_portrait_ipv4"
         );
     }
@@ -1327,7 +1332,7 @@ mod tests {
 
         assert_eq!(
             pixel_hash(via_layout.pixels()),
-            12892245314711865167,
+            17638825497079277884,
             "golden drift: analogue_layout_matches_legacy_render_landscape"
         );
     }
@@ -1346,7 +1351,7 @@ mod tests {
 
         assert_eq!(
             pixel_hash(via_layout.pixels()),
-            9580359624296381367,
+            5662842170366413375,
             "golden drift: analogue_layout_matches_legacy_render_portrait"
         );
     }
