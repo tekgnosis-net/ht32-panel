@@ -32,7 +32,8 @@
 
 use super::{
     complication_names, complication_options, complications, date_formats, draw_mini_analog_clock,
-    time_formats, Complication, EnabledComplications, Face, Theme,
+    mini_analog_clock_draws, time_formats, Complication, EnabledComplications, Face, MiniClockDraw,
+    Theme,
 };
 use crate::faces::layout::{Cadence, Layout, Rect, Widget, WidgetContent, ZoneKind};
 use crate::rendering::Canvas;
@@ -202,8 +203,9 @@ impl Face for AsciiFace {
             // Portrait layout - labels on separate lines, wider graphs
             let line_height = canvas.line_height(FONT_SMALL);
             let section_spacing = 6; // Extra spacing between label/value pairs
-                                     // Calculate bar width to fill most of the line (leave margin on each side)
-            let bar_width = ((width as i32 - margin * 2) / 7).max(12) as usize; // ~7 pixels per char
+                                     // Calculate bar width to fill most of the line (leave margin on each side).
+                                     // Subtract 2 for the bracket chars '[' and ']' that wrap the bar content.
+            let bar_width = ((width as i32 - margin * 2) / 7 - 2).max(8) as usize; // ~7 pixels per char
 
             // Hostname (always shown)
             canvas.draw_text(margin, y, &data.hostname, FONT_LARGE, colors.highlight);
@@ -527,10 +529,92 @@ impl Face for AsciiFace {
     }
 }
 
+/// Maps a single [`MiniClockDraw`] spec to a stable widget id and a
+/// [`WidgetContent`] variant for use in `build_layout`.
+///
+/// The `index` parameter is the 0-based position in the slice returned by
+/// `mini_analog_clock_draws`; it is used to produce a stable static id string.
+fn mini_clock_draw_to_widget(draw: MiniClockDraw, index: usize) -> (&'static str, WidgetContent) {
+    // The draw order from mini_analog_clock_draws is fixed:
+    //   0 → Arc  (bezel)
+    //   1 → Line (hour hand)
+    //   2 → Line (minute hand)
+    //   3 → Circle (hub)
+    match (index, draw) {
+        (
+            _,
+            MiniClockDraw::Arc {
+                cx,
+                cy,
+                r,
+                start_angle,
+                end_angle,
+                stroke,
+                color,
+            },
+        ) => (
+            "clock_bezel",
+            WidgetContent::Arc {
+                cx,
+                cy,
+                r,
+                start_angle,
+                end_angle,
+                stroke,
+                color,
+            },
+        ),
+        (
+            1,
+            MiniClockDraw::Line {
+                x1,
+                y1,
+                x2,
+                y2,
+                stroke,
+                color,
+            },
+        ) => (
+            "clock_hour",
+            WidgetContent::Line {
+                x1,
+                y1,
+                x2,
+                y2,
+                stroke,
+                color,
+            },
+        ),
+        (
+            _,
+            MiniClockDraw::Line {
+                x1,
+                y1,
+                x2,
+                y2,
+                stroke,
+                color,
+            },
+        ) => (
+            "clock_minute",
+            WidgetContent::Line {
+                x1,
+                y1,
+                x2,
+                y2,
+                stroke,
+                color,
+            },
+        ),
+        (_, MiniClockDraw::Circle { cx, cy, r, color }) => {
+            ("clock_hub", WidgetContent::Circle { cx, cy, r, color })
+        }
+    }
+}
+
 impl AsciiFace {
-    /// Builds the typed-widget layout. Returns `None` when the ANALOGUE time
-    /// format is active (analog clock has no `Text` widget; the caller falls
-    /// back to `render()`).
+    /// Builds the typed-widget layout, covering ALL configs including ANALOGUE
+    /// time (which emits `Line`/`Arc`/`Circle` widgets from `mini_analog_clock_draws`).
     fn build_layout(
         &self,
         canvas: &Canvas,
@@ -568,16 +652,12 @@ impl AsciiFace {
             .map(|s| s.as_str())
             .unwrap_or(date_formats::ISO);
 
-        // Return None for analogue: the analog clock has no Text widget yet.
-        if is_enabled(complication_names::TIME) && time_format == time_formats::ANALOGUE {
-            return None;
-        }
-
         if portrait {
             // Portrait layout - labels on separate lines, wider graphs
             let line_height = canvas.line_height(FONT_SMALL);
             let section_spacing = 6;
-            let bar_width = ((width as i32 - margin * 2) / 7).max(12) as usize;
+            // Subtract 2 for the bracket chars '[' and ']' that wrap the bar content.
+            let bar_width = ((width as i32 - margin * 2) / 7 - 2).max(8) as usize;
 
             // Hostname (always shown)
             layout.push(Widget {
@@ -601,28 +681,59 @@ impl AsciiFace {
 
             // Complication: Time (right-aligned)
             if is_enabled(complication_names::TIME) {
-                // ANALOGUE already returned None above
-                let time_str = data.format_time(time_format);
-                let time_width = canvas.text_width(&time_str, FONT_LARGE);
-                let tx = width as i32 - margin - time_width;
-                layout.push(Widget {
-                    id: "time",
-                    rect: Rect {
-                        x: tx,
-                        y,
-                        w: time_width.max(0) as u32,
-                        h: canvas.line_height(FONT_LARGE).max(0) as u32,
-                    },
-                    kind: ZoneKind::Dynamic,
-                    cadence: Cadence::Seconds(60),
-                    content: WidgetContent::Text {
-                        text: time_str,
-                        x: tx,
-                        y,
-                        size: FONT_LARGE,
-                        color: colors.text,
-                    },
-                });
+                if time_format == time_formats::ANALOGUE {
+                    let clock_radius = 10_u32;
+                    let clock_cx = width as i32 - margin - clock_radius as i32;
+                    let clock_cy = y + clock_radius as i32;
+                    for (i, draw) in mini_analog_clock_draws(
+                        clock_cx,
+                        clock_cy,
+                        clock_radius,
+                        data.hour,
+                        data.minute,
+                        colors.highlight,
+                        colors.text,
+                    )
+                    .into_iter()
+                    .enumerate()
+                    {
+                        let (id, content) = mini_clock_draw_to_widget(draw, i);
+                        layout.push(Widget {
+                            id,
+                            rect: Rect {
+                                x: clock_cx - clock_radius as i32,
+                                y: clock_cy - clock_radius as i32,
+                                w: clock_radius * 2,
+                                h: clock_radius * 2,
+                            },
+                            kind: ZoneKind::Dynamic,
+                            cadence: Cadence::Seconds(60),
+                            content,
+                        });
+                    }
+                } else {
+                    let time_str = data.format_time(time_format);
+                    let time_width = canvas.text_width(&time_str, FONT_LARGE);
+                    let tx = width as i32 - margin - time_width;
+                    layout.push(Widget {
+                        id: "time",
+                        rect: Rect {
+                            x: tx,
+                            y,
+                            w: time_width.max(0) as u32,
+                            h: canvas.line_height(FONT_LARGE).max(0) as u32,
+                        },
+                        kind: ZoneKind::Dynamic,
+                        cadence: Cadence::Seconds(60),
+                        content: WidgetContent::Text {
+                            text: time_str,
+                            x: tx,
+                            y,
+                            size: FONT_LARGE,
+                            color: colors.text,
+                        },
+                    });
+                }
             }
             y += canvas.line_height(FONT_LARGE) + 1;
 
@@ -1060,28 +1171,59 @@ impl AsciiFace {
 
             // Complication: Time (right-aligned)
             if is_enabled(complication_names::TIME) {
-                // ANALOGUE already returned None above
-                let time_str = data.format_time(time_format);
-                let time_width = canvas.text_width(&time_str, FONT_LARGE);
-                let tx = width as i32 - margin - time_width;
-                layout.push(Widget {
-                    id: "time",
-                    rect: Rect {
-                        x: tx,
-                        y,
-                        w: time_width.max(0) as u32,
-                        h: canvas.line_height(FONT_LARGE).max(0) as u32,
-                    },
-                    kind: ZoneKind::Dynamic,
-                    cadence: Cadence::Seconds(60),
-                    content: WidgetContent::Text {
-                        text: time_str,
-                        x: tx,
-                        y,
-                        size: FONT_LARGE,
-                        color: colors.text,
-                    },
-                });
+                if time_format == time_formats::ANALOGUE {
+                    let clock_radius = 10_u32;
+                    let clock_cx = width as i32 - margin - clock_radius as i32;
+                    let clock_cy = y + clock_radius as i32;
+                    for (i, draw) in mini_analog_clock_draws(
+                        clock_cx,
+                        clock_cy,
+                        clock_radius,
+                        data.hour,
+                        data.minute,
+                        colors.highlight,
+                        colors.text,
+                    )
+                    .into_iter()
+                    .enumerate()
+                    {
+                        let (id, content) = mini_clock_draw_to_widget(draw, i);
+                        layout.push(Widget {
+                            id,
+                            rect: Rect {
+                                x: clock_cx - clock_radius as i32,
+                                y: clock_cy - clock_radius as i32,
+                                w: clock_radius * 2,
+                                h: clock_radius * 2,
+                            },
+                            kind: ZoneKind::Dynamic,
+                            cadence: Cadence::Seconds(60),
+                            content,
+                        });
+                    }
+                } else {
+                    let time_str = data.format_time(time_format);
+                    let time_width = canvas.text_width(&time_str, FONT_LARGE);
+                    let tx = width as i32 - margin - time_width;
+                    layout.push(Widget {
+                        id: "time",
+                        rect: Rect {
+                            x: tx,
+                            y,
+                            w: time_width.max(0) as u32,
+                            h: canvas.line_height(FONT_LARGE).max(0) as u32,
+                        },
+                        kind: ZoneKind::Dynamic,
+                        cadence: Cadence::Seconds(60),
+                        content: WidgetContent::Text {
+                            text: time_str,
+                            x: tx,
+                            y,
+                            size: FONT_LARGE,
+                            color: colors.text,
+                        },
+                    });
+                }
             }
             y += canvas.line_height(FONT_LARGE) + 1;
 
@@ -1431,34 +1573,60 @@ mod tests {
         assert_eq!(legacy, via_layout, "ascii landscape mismatch (IPv4)");
     }
 
-    /// Portrait branch: verify layout() returns Some and produces at least the
-    /// fixed elements (hostname, uptime, CPU label, CPU bar, RAM label, RAM bar).
-    ///
-    /// Full pixel comparison is skipped in debug builds because render() triggers
-    /// a debug_assert in canvas::draw_text for the portrait bar-width string — the
-    /// bar_width formula in render() does not account for the two bracket chars,
-    /// causing text to overflow by ~14 px on any portrait canvas < 200 px wide.
-    /// The layout() implementation mirrors render() exactly, so when render() is
-    /// fixed (or run in release) the equivalence will hold automatically.
-    #[test]
-    fn ascii_layout_portrait_returns_some_and_has_expected_widgets() {
-        use crate::faces::layout::Layout;
+    /// Helper: build complications configured for ANALOGUE time.
+    fn analogue_comps() -> EnabledComplications {
+        let mut comps = EnabledComplications::new();
+        comps.set_enabled("ascii", complication_names::TIME, true);
+        comps.set_option(
+            "ascii",
+            complication_names::TIME,
+            complication_options::TIME_FORMAT,
+            time_formats::ANALOGUE.to_string(),
+        );
+        comps
+    }
+
+    /// Helper: render via both paths for a given complications set.
+    fn render_both_comps(
+        width: u32,
+        height: u32,
+        data: SystemData,
+        comps: EnabledComplications,
+    ) -> (Vec<u8>, Vec<u8>) {
         let face = AsciiFace::new();
-        let data = sample();
         let theme = Theme::from_preset("default");
-        let comps = EnabledComplications::new();
-        let canvas = Canvas::new(170, 320);
-        let layout: Layout = face
-            .layout(&canvas, &data, &theme, &comps)
-            .expect("portrait layout() must return Some");
-        // Collect widget IDs so we can assert key elements exist.
-        let ids: Vec<&str> = layout.widgets.iter().map(|w| w.id).collect();
-        assert!(ids.contains(&"hostname"), "hostname widget missing");
-        assert!(ids.contains(&"uptime"), "uptime widget missing");
-        assert!(ids.contains(&"cpu_label"), "cpu_label widget missing");
-        assert!(ids.contains(&"cpu_bar"), "cpu_bar widget missing");
-        assert!(ids.contains(&"ram_label"), "ram_label widget missing");
-        assert!(ids.contains(&"ram_bar"), "ram_bar widget missing");
+
+        let mut legacy = Canvas::new(width, height);
+        legacy.set_background(0);
+        legacy.clear();
+        face.render(&mut legacy, &data, &theme, &comps);
+
+        let mut via_layout = Canvas::new(width, height);
+        let lay = face
+            .layout(&via_layout, &data, &theme, &comps)
+            .expect("layout() should be Some");
+        via_layout.set_background(0);
+        via_layout.clear();
+        render_layout(&mut via_layout, &lay);
+
+        (legacy.pixels().to_vec(), via_layout.pixels().to_vec())
+    }
+
+    /// Portrait pixel-identical equivalence: default complications (digital time).
+    #[test]
+    fn ascii_layout_matches_render_portrait() {
+        let (legacy, via_layout) = render_both(170, 320);
+        assert_eq!(
+            legacy, via_layout,
+            "ascii portrait mismatch (default comps)"
+        );
+    }
+
+    /// Portrait pixel-identical equivalence: IPv4 address populated.
+    #[test]
+    fn ascii_layout_matches_render_portrait_with_ip() {
+        let (legacy, via_layout) = render_both_with(170, 320, sample_with_ip("192.168.1.100"));
+        assert_eq!(legacy, via_layout, "ascii portrait mismatch (IPv4)");
     }
 
     /// Portrait + IPv6: exercises the rfind(':') / split_at two-line split path.
@@ -1480,24 +1648,17 @@ mod tests {
         );
     }
 
+    /// Landscape ANALOGUE time: pixel-identical equivalence.
     #[test]
-    fn analogue_time_returns_none() {
-        use crate::faces::{complication_names, complication_options, time_formats};
-        let face = AsciiFace::new();
-        let data = sample();
-        let theme = Theme::from_preset("default");
-        let mut comps = EnabledComplications::new();
-        comps.set_enabled("ascii", complication_names::TIME, true);
-        comps.set_option(
-            "ascii",
-            complication_names::TIME,
-            complication_options::TIME_FORMAT,
-            time_formats::ANALOGUE.to_string(),
-        );
-        let canvas = Canvas::new(320, 170);
-        assert!(
-            face.layout(&canvas, &data, &theme, &comps).is_none(),
-            "ANALOGUE config must return None"
-        );
+    fn ascii_layout_matches_render_landscape_analogue() {
+        let (legacy, via_layout) = render_both_comps(320, 170, sample(), analogue_comps());
+        assert_eq!(legacy, via_layout, "ascii landscape analogue mismatch");
+    }
+
+    /// Portrait ANALOGUE time: pixel-identical equivalence.
+    #[test]
+    fn ascii_layout_matches_render_portrait_analogue() {
+        let (legacy, via_layout) = render_both_comps(170, 320, sample(), analogue_comps());
+        assert_eq!(legacy, via_layout, "ascii portrait analogue mismatch");
     }
 }

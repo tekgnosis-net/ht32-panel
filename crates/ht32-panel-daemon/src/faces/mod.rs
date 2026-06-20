@@ -110,6 +110,105 @@ fn lighten_color(color: u32, factor: f32) -> u32 {
     ((r_light as u32) << 16) | ((g_light as u32) << 8) | (b_light as u32)
 }
 
+/// A single primitive draw call for the mini analog clock.
+///
+/// Returned by [`mini_analog_clock_draws`] so both the direct-canvas path
+/// (`draw_mini_analog_clock`) and the typed-widget Layout path can consume the
+/// same geometry without duplicating the trigonometry.
+pub enum MiniClockDraw {
+    Arc {
+        cx: i32,
+        cy: i32,
+        r: u32,
+        start_angle: f32,
+        end_angle: f32,
+        stroke: f32,
+        color: u32,
+    },
+    Line {
+        x1: i32,
+        y1: i32,
+        x2: i32,
+        y2: i32,
+        stroke: f32,
+        color: u32,
+    },
+    Circle {
+        cx: i32,
+        cy: i32,
+        r: u32,
+        color: u32,
+    },
+}
+
+/// Computes the draw-primitive specs for a mini analog clock without touching a
+/// canvas.  The caller owns the sequencing: pass each element to either a
+/// `Canvas` call (via [`draw_mini_analog_clock`]) or a `WidgetContent` variant.
+///
+/// Order: Arc (bezel) → Line (hour hand) → Line (minute hand) → Circle (hub).
+pub fn mini_analog_clock_draws(
+    cx: i32,
+    cy: i32,
+    radius: u32,
+    hour: u8,
+    minute: u8,
+    primary_color: u32,
+    hand_color: u32,
+) -> Vec<MiniClockDraw> {
+    let radius_f = radius as f32;
+
+    // Calculate hand angles (12 o'clock = -PI/2)
+    let minute_angle = (minute as f32) * PI / 30.0 - PI / 2.0;
+    let hour_angle = ((hour % 12) as f32 + minute as f32 / 60.0) * PI / 6.0 - PI / 2.0;
+
+    let hour_length = radius_f * 0.5;
+    let hour_x = (cx as f32 + hour_length * hour_angle.cos()) as i32;
+    let hour_y = (cy as f32 + hour_length * hour_angle.sin()) as i32;
+
+    let minute_color = lighten_color(hand_color, 0.4);
+    let minute_length = radius_f * 0.7;
+    let minute_x = (cx as f32 + minute_length * minute_angle.cos()) as i32;
+    let minute_y = (cy as f32 + minute_length * minute_angle.sin()) as i32;
+
+    vec![
+        // Bezel outline
+        MiniClockDraw::Arc {
+            cx,
+            cy,
+            r: radius,
+            start_angle: 0.0,
+            end_angle: 2.0 * PI,
+            stroke: 1.5,
+            color: primary_color,
+        },
+        // Hour hand
+        MiniClockDraw::Line {
+            x1: cx,
+            y1: cy,
+            x2: hour_x,
+            y2: hour_y,
+            stroke: 2.5,
+            color: hand_color,
+        },
+        // Minute hand
+        MiniClockDraw::Line {
+            x1: cx,
+            y1: cy,
+            x2: minute_x,
+            y2: minute_y,
+            stroke: 1.5,
+            color: minute_color,
+        },
+        // Center hub
+        MiniClockDraw::Circle {
+            cx,
+            cy,
+            r: 2,
+            color: primary_color,
+        },
+    ]
+}
+
 /// Draws a small analog clock for use in complications.
 ///
 /// This is a minimal clock face with hands, suitable for
@@ -125,30 +224,28 @@ pub fn draw_mini_analog_clock(
     primary_color: u32,
     hand_color: u32,
 ) {
-    let radius_f = radius as f32;
-
-    // Draw clock face outline
-    canvas.draw_arc(cx, cy, radius, 0.0, 2.0 * PI, 1.5, primary_color);
-
-    // Calculate hand angles (12 o'clock = -PI/2)
-    let minute_angle = (minute as f32) * PI / 30.0 - PI / 2.0;
-    let hour_angle = ((hour % 12) as f32 + minute as f32 / 60.0) * PI / 6.0 - PI / 2.0;
-
-    // Draw hour hand (shorter, thicker, original color)
-    let hour_length = radius_f * 0.5;
-    let hour_x = cx as f32 + hour_length * hour_angle.cos();
-    let hour_y = cy as f32 + hour_length * hour_angle.sin();
-    canvas.draw_line(cx, cy, hour_x as i32, hour_y as i32, 2.5, hand_color);
-
-    // Draw minute hand (longer, thinner, lighter color)
-    let minute_color = lighten_color(hand_color, 0.4);
-    let minute_length = radius_f * 0.7;
-    let minute_x = cx as f32 + minute_length * minute_angle.cos();
-    let minute_y = cy as f32 + minute_length * minute_angle.sin();
-    canvas.draw_line(cx, cy, minute_x as i32, minute_y as i32, 1.5, minute_color);
-
-    // Draw center dot
-    canvas.fill_circle(cx, cy, 2, primary_color);
+    for draw in mini_analog_clock_draws(cx, cy, radius, hour, minute, primary_color, hand_color) {
+        match draw {
+            MiniClockDraw::Arc {
+                cx,
+                cy,
+                r,
+                start_angle,
+                end_angle,
+                stroke,
+                color,
+            } => canvas.draw_arc(cx, cy, r, start_angle, end_angle, stroke, color),
+            MiniClockDraw::Line {
+                x1,
+                y1,
+                x2,
+                y2,
+                stroke,
+                color,
+            } => canvas.draw_line(x1, y1, x2, y2, stroke, color),
+            MiniClockDraw::Circle { cx, cy, r, color } => canvas.fill_circle(cx, cy, r, color),
+        }
+    }
 }
 
 /// Information about an available theme.
