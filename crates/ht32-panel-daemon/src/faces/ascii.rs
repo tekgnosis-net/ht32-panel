@@ -1529,24 +1529,7 @@ mod tests {
     }
 
     fn render_both_with(width: u32, height: u32, data: SystemData) -> (Vec<u8>, Vec<u8>) {
-        let face = AsciiFace::new();
-        let theme = Theme::from_preset("default");
-        let comps = EnabledComplications::new();
-
-        let mut legacy = Canvas::new(width, height);
-        legacy.set_background(0);
-        legacy.clear();
-        face.render(&mut legacy, &data, &theme, &comps);
-
-        let mut via_layout = Canvas::new(width, height);
-        let lay = face
-            .layout(&via_layout, &data, &theme, &comps)
-            .expect("layout() should be Some");
-        via_layout.set_background(0);
-        via_layout.clear();
-        render_layout(&mut via_layout, &lay);
-
-        (legacy.pixels().to_vec(), via_layout.pixels().to_vec())
+        render_both_comps(width, height, data, EnabledComplications::new())
     }
 
     #[allow(clippy::field_reassign_with_default)]
@@ -1646,6 +1629,16 @@ mod tests {
             ids.contains(&"ip_addr_line1") && ids.contains(&"ip_addr_line2"),
             "IPv6 wrap widgets missing; got: {ids:?}"
         );
+    }
+
+    /// Portrait + IPv6: pixel-identical equivalence across the highest-complexity
+    /// portrait branch (the rfind(':')/split_at two-line wrap). Parity with the
+    /// professional face's IPv6 coverage.
+    #[test]
+    fn ascii_layout_matches_render_portrait_ipv6() {
+        let (legacy, via_layout) =
+            render_both_with(170, 320, sample_with_ip("2001:db8::dead:beef:1:2"));
+        assert_eq!(legacy, via_layout, "ascii portrait mismatch (IPv6 split)");
     }
 
     /// Landscape ANALOGUE time: pixel-identical equivalence.
