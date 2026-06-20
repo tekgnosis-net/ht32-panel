@@ -18,7 +18,8 @@
 
 use super::{
     complication_names, complication_options, complications, date_formats, draw_mini_analog_clock,
-    time_formats, Complication, EnabledComplications, Face, Theme,
+    mini_analog_clock_draws, mini_clock_draw_to_widget, time_formats, Complication,
+    EnabledComplications, Face, Theme,
 };
 use crate::faces::layout::{Cadence, Layout, Rect, Widget, WidgetContent, ZoneKind};
 use crate::rendering::Canvas;
@@ -137,9 +138,9 @@ impl ProfessionalFace {
     /// `DualSparkline`, in the same order with the same computed values, so
     /// `render_layout` reproduces `render()`'s pixels byte-for-byte.
     ///
-    /// Returns `None` when the ANALOGUE time format is active, signalling that
-    /// the caller should fall back to the legacy `render()` path which draws
-    /// the mini analog clock.
+    /// This function is TOTAL: it returns `Some(Layout)` for every config,
+    /// including ANALOGUE time (which emits `Line`/`Arc`/`Circle` widgets
+    /// from `mini_analog_clock_draws`).
     fn build_layout(
         &self,
         canvas: &Canvas,
@@ -207,9 +208,36 @@ impl ProfessionalFace {
             // Complication: Time (right-aligned)
             if is_enabled(complication_names::TIME) {
                 if time_format == time_formats::ANALOGUE {
-                    // Analog clock has no Layout widget yet (Phase 1b adds a
-                    // Clock kind); fall back to render() for this format.
-                    return None;
+                    // Draw small analog clock on the right (mirrors render()).
+                    let clock_radius = 10_u32;
+                    let clock_cx = width as i32 - margin - clock_radius as i32;
+                    let clock_cy = y + clock_radius as i32;
+                    for (i, draw) in mini_analog_clock_draws(
+                        clock_cx,
+                        clock_cy,
+                        clock_radius,
+                        data.hour,
+                        data.minute,
+                        colors.highlight,
+                        colors.text,
+                    )
+                    .into_iter()
+                    .enumerate()
+                    {
+                        let (id, content) = mini_clock_draw_to_widget(draw, i);
+                        layout.push(Widget {
+                            id,
+                            rect: Rect {
+                                x: clock_cx - clock_radius as i32,
+                                y: clock_cy - clock_radius as i32,
+                                w: clock_radius * 2,
+                                h: clock_radius * 2,
+                            },
+                            kind: ZoneKind::Dynamic,
+                            cadence: Cadence::Seconds(60),
+                            content,
+                        });
+                    }
                 } else {
                     let time_str = data.format_time(time_format);
                     let time_width = canvas.text_width(&time_str, FONT_LARGE);
@@ -724,9 +752,36 @@ impl ProfessionalFace {
             // Complication: Time (right-aligned)
             if is_enabled(complication_names::TIME) {
                 if time_format == time_formats::ANALOGUE {
-                    // Analog clock has no Layout widget yet (Phase 1b adds a
-                    // Clock kind); fall back to render() for this format.
-                    return None;
+                    // Draw small analog clock on the right (mirrors render()).
+                    let clock_radius = 10_u32;
+                    let clock_cx = width as i32 - margin - clock_radius as i32;
+                    let clock_cy = y + clock_radius as i32 + 2;
+                    for (i, draw) in mini_analog_clock_draws(
+                        clock_cx,
+                        clock_cy,
+                        clock_radius,
+                        data.hour,
+                        data.minute,
+                        colors.highlight,
+                        colors.text,
+                    )
+                    .into_iter()
+                    .enumerate()
+                    {
+                        let (id, content) = mini_clock_draw_to_widget(draw, i);
+                        layout.push(Widget {
+                            id,
+                            rect: Rect {
+                                x: clock_cx - clock_radius as i32,
+                                y: clock_cy - clock_radius as i32,
+                                w: clock_radius * 2,
+                                h: clock_radius * 2,
+                            },
+                            kind: ZoneKind::Dynamic,
+                            cadence: Cadence::Seconds(60),
+                            content,
+                        });
+                    }
                 } else {
                     let time_str = data.format_time(time_format);
                     let time_width = canvas.text_width(&time_str, FONT_LARGE);
@@ -1685,14 +1740,9 @@ mod tests {
         );
     }
 
-    #[test]
-    fn analogue_time_falls_back_to_render_via_none() {
+    fn analogue_comps() -> EnabledComplications {
         use crate::faces::{complication_names, complication_options, time_formats};
-        let face = ProfessionalFace::new();
-        let data = sample();
-        let theme = Theme::from_preset("default");
         let mut comps = EnabledComplications::new();
-        // Enable the TIME complication explicitly and set its format to ANALOGUE.
         comps.set_enabled("professional", complication_names::TIME, true);
         comps.set_option(
             "professional",
@@ -1700,10 +1750,56 @@ mod tests {
             complication_options::TIME_FORMAT,
             time_formats::ANALOGUE.to_string(),
         );
-        let canvas = Canvas::new(320, 170);
-        assert!(
-            face.layout(&canvas, &data, &theme, &comps).is_none(),
-            "ANALOGUE config must return None so render() handles the analog clock"
+        comps
+    }
+
+    #[test]
+    fn analogue_layout_matches_legacy_render_landscape() {
+        let comps = analogue_comps();
+        let face = ProfessionalFace::new();
+        let data = sample();
+        let theme = Theme::from_preset("default");
+
+        let mut legacy = Canvas::new(320, 170);
+        legacy.clear();
+        face.render(&mut legacy, &data, &theme, &comps);
+
+        let mut via_layout = Canvas::new(320, 170);
+        let lay = face
+            .layout(&via_layout, &data, &theme, &comps)
+            .expect("ANALOGUE landscape: layout() must be Some");
+        via_layout.clear();
+        crate::faces::layout::render_layout(&mut via_layout, &lay);
+
+        assert_eq!(
+            legacy.pixels().to_vec(),
+            via_layout.pixels().to_vec(),
+            "ANALOGUE landscape: layout output must equal render()"
+        );
+    }
+
+    #[test]
+    fn analogue_layout_matches_legacy_render_portrait() {
+        let comps = analogue_comps();
+        let face = ProfessionalFace::new();
+        let data = sample();
+        let theme = Theme::from_preset("default");
+
+        let mut legacy = Canvas::new(170, 320);
+        legacy.clear();
+        face.render(&mut legacy, &data, &theme, &comps);
+
+        let mut via_layout = Canvas::new(170, 320);
+        let lay = face
+            .layout(&via_layout, &data, &theme, &comps)
+            .expect("ANALOGUE portrait: layout() must be Some");
+        via_layout.clear();
+        crate::faces::layout::render_layout(&mut via_layout, &lay);
+
+        assert_eq!(
+            legacy.pixels().to_vec(),
+            via_layout.pixels().to_vec(),
+            "ANALOGUE portrait: layout output must equal render()"
         );
     }
 }
