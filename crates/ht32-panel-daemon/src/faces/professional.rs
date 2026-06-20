@@ -1632,7 +1632,7 @@ impl Face for ProfessionalFace {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::faces::layout::render_layout;
+    use crate::faces::layout::{pixel_hash, render_layout};
     use crate::faces::Theme;
     use crate::faces::{EnabledComplications, Face};
     use crate::rendering::Canvas;
@@ -1687,6 +1687,11 @@ mod tests {
             legacy, via_layout,
             "landscape: layout output must equal render()"
         );
+        assert_eq!(
+            pixel_hash(&via_layout),
+            10701061824176020197,
+            "golden drift: layout_matches_legacy_render_landscape"
+        );
     }
 
     #[test]
@@ -1695,6 +1700,11 @@ mod tests {
         assert_eq!(
             legacy, via_layout,
             "portrait: layout output must equal render()"
+        );
+        assert_eq!(
+            pixel_hash(&via_layout),
+            14665955793822149985,
+            "golden drift: layout_matches_legacy_render_portrait"
         );
     }
 
@@ -1716,6 +1726,11 @@ mod tests {
             legacy, via_layout,
             "portrait IPv6 wrap: layout output must equal render()"
         );
+        assert_eq!(
+            pixel_hash(&via_layout),
+            15172485710738808832,
+            "golden drift: layout_matches_legacy_render_portrait_ipv6_wrap"
+        );
     }
 
     /// Landscape + short IPv4 → exercises the single-line landscape IP path.
@@ -1727,6 +1742,11 @@ mod tests {
             legacy, via_layout,
             "landscape IPv4: layout output must equal render()"
         );
+        assert_eq!(
+            pixel_hash(&via_layout),
+            5058213149468129392,
+            "golden drift: layout_matches_legacy_render_landscape_ipv4"
+        );
     }
 
     /// Portrait + short IPv4 → exercises the portrait single-line IP path.
@@ -1737,6 +1757,11 @@ mod tests {
         assert_eq!(
             legacy, via_layout,
             "portrait IPv4: layout output must equal render()"
+        );
+        assert_eq!(
+            pixel_hash(&via_layout),
+            14830570311864835861,
+            "golden drift: layout_matches_legacy_render_portrait_ipv4"
         );
     }
 
@@ -1776,6 +1801,11 @@ mod tests {
             via_layout.pixels().to_vec(),
             "ANALOGUE landscape: layout output must equal render()"
         );
+        assert_eq!(
+            pixel_hash(via_layout.pixels()),
+            12892245314711865167,
+            "golden drift: analogue_layout_matches_legacy_render_landscape"
+        );
     }
 
     #[test]
@@ -1800,6 +1830,11 @@ mod tests {
             legacy.pixels().to_vec(),
             via_layout.pixels().to_vec(),
             "ANALOGUE portrait: layout output must equal render()"
+        );
+        assert_eq!(
+            pixel_hash(via_layout.pixels()),
+            9580359624296381367,
+            "golden drift: analogue_layout_matches_legacy_render_portrait"
         );
     }
 }

@@ -861,7 +861,7 @@ impl Face for ClockFace {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::faces::layout::render_layout;
+    use crate::faces::layout::{pixel_hash, render_layout};
     use crate::faces::Theme;
     use crate::faces::{EnabledComplications, Face};
     use crate::rendering::Canvas;
@@ -962,12 +962,22 @@ mod tests {
     fn clock_layout_matches_render_landscape_analog() {
         let (legacy, via_layout) = render_both(320, 170);
         assert_eq!(legacy, via_layout, "clock landscape analog mismatch");
+        assert_eq!(
+            pixel_hash(&via_layout),
+            13417756890114301721,
+            "golden drift: clock_layout_matches_render_landscape_analog"
+        );
     }
 
     #[test]
     fn clock_layout_matches_render_portrait_analog() {
         let (legacy, via_layout) = render_both(170, 320);
         assert_eq!(legacy, via_layout, "clock portrait analog mismatch");
+        assert_eq!(
+            pixel_hash(&via_layout),
+            479876432683237793,
+            "golden drift: clock_layout_matches_render_portrait_analog"
+        );
     }
 
     // --- Analog mode with hostname + date complications ---
@@ -977,6 +987,11 @@ mod tests {
         let (legacy, via_layout) =
             render_both_comps(320, 170, sample_with_date(), analog_full_comps());
         assert_eq!(legacy, via_layout, "clock landscape analog full mismatch");
+        assert_eq!(
+            pixel_hash(&via_layout),
+            3888933470548481487,
+            "golden drift: clock_layout_matches_render_landscape_analog_full"
+        );
     }
 
     #[test]
@@ -984,6 +999,11 @@ mod tests {
         let (legacy, via_layout) =
             render_both_comps(170, 320, sample_with_date(), analog_full_comps());
         assert_eq!(legacy, via_layout, "clock portrait analog full mismatch");
+        assert_eq!(
+            pixel_hash(&via_layout),
+            14494316605444689504,
+            "golden drift: clock_layout_matches_render_portrait_analog_full"
+        );
     }
 
     // --- Digital mode, both orientations ---
@@ -992,12 +1012,22 @@ mod tests {
     fn clock_layout_matches_render_landscape_digital() {
         let (legacy, via_layout) = render_both_comps(320, 170, sample(), digital_comps());
         assert_eq!(legacy, via_layout, "clock landscape digital mismatch");
+        assert_eq!(
+            pixel_hash(&via_layout),
+            5840807577594969307,
+            "golden drift: clock_layout_matches_render_landscape_digital"
+        );
     }
 
     #[test]
     fn clock_layout_matches_render_portrait_digital() {
         let (legacy, via_layout) = render_both_comps(170, 320, sample(), digital_comps());
         assert_eq!(legacy, via_layout, "clock portrait digital mismatch");
+        assert_eq!(
+            pixel_hash(&via_layout),
+            15006201191712943095,
+            "golden drift: clock_layout_matches_render_portrait_digital"
+        );
     }
 
     // --- Digital mode with hostname + date complications ---
@@ -1007,6 +1037,11 @@ mod tests {
         let (legacy, via_layout) =
             render_both_comps(320, 170, sample_with_date(), digital_full_comps());
         assert_eq!(legacy, via_layout, "clock landscape digital full mismatch");
+        assert_eq!(
+            pixel_hash(&via_layout),
+            1161514971122122895,
+            "golden drift: clock_layout_matches_render_landscape_digital_full"
+        );
     }
 
     #[test]
@@ -1014,6 +1049,11 @@ mod tests {
         let (legacy, via_layout) =
             render_both_comps(170, 320, sample_with_date(), digital_full_comps());
         assert_eq!(legacy, via_layout, "clock portrait digital full mismatch");
+        assert_eq!(
+            pixel_hash(&via_layout),
+            3761932041278855023,
+            "golden drift: clock_layout_matches_render_portrait_digital_full"
+        );
     }
 
     // --- Portrait digital with large font size: exercises the TextScaled /
@@ -1024,5 +1064,10 @@ mod tests {
         let (legacy, via_layout) =
             render_both_comps(170, 320, sample_with_date(), digital_scaled_comps());
         assert_eq!(legacy, via_layout, "clock portrait digital scaled mismatch");
+        assert_eq!(
+            pixel_hash(&via_layout),
+            4076598659137079727,
+            "golden drift: clock_layout_matches_render_portrait_digital_scaled"
+        );
     }
 }

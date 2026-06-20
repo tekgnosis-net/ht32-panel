@@ -204,6 +204,21 @@ pub fn render_layout(canvas: &mut Canvas, layout: &Layout) {
     }
 }
 
+/// Deterministic, dependency-free FNV-1a hash over RGBA pixel bytes.
+///
+/// Shared by the per-face golden-snapshot tests so a single pinned `u64`
+/// per (face, config) guards against rendering regressions without needing
+/// the retired `render()` path as a reference.
+#[cfg(test)]
+pub(crate) fn pixel_hash(px: &[u8]) -> u64 {
+    let mut h = 0xcbf29ce484222325u64;
+    for &b in px {
+        h ^= b as u64;
+        h = h.wrapping_mul(0x100000001b3);
+    }
+    h
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

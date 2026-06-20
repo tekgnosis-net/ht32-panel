@@ -1969,7 +1969,7 @@ impl Face for ArcsFace {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::faces::layout::render_layout;
+    use crate::faces::layout::{pixel_hash, render_layout};
     use crate::faces::Theme;
     use crate::faces::{EnabledComplications, Face};
     use crate::rendering::Canvas;
@@ -2050,12 +2050,22 @@ mod tests {
             legacy, via_layout,
             "arcs landscape mismatch (default comps)"
         );
+        assert_eq!(
+            pixel_hash(&via_layout),
+            14149716339363237421,
+            "golden drift: arcs_layout_matches_render_landscape"
+        );
     }
 
     #[test]
     fn arcs_layout_matches_render_landscape_with_ip() {
         let (legacy, via_layout) = render_both_with(320, 170, sample_with_ip("192.168.1.100"));
         assert_eq!(legacy, via_layout, "arcs landscape mismatch (IPv4)");
+        assert_eq!(
+            pixel_hash(&via_layout),
+            18341083721031071558,
+            "golden drift: arcs_layout_matches_render_landscape_with_ip"
+        );
     }
 
     #[test]
@@ -2063,18 +2073,33 @@ mod tests {
         let (legacy, via_layout) =
             render_both_with(320, 170, sample_with_ip("2001:db8::dead:beef:1:2"));
         assert_eq!(legacy, via_layout, "arcs landscape mismatch (IPv6)");
+        assert_eq!(
+            pixel_hash(&via_layout),
+            2326329289435487373,
+            "golden drift: arcs_layout_matches_render_landscape_ipv6"
+        );
     }
 
     #[test]
     fn arcs_layout_matches_render_portrait() {
         let (legacy, via_layout) = render_both(170, 320);
         assert_eq!(legacy, via_layout, "arcs portrait mismatch (default comps)");
+        assert_eq!(
+            pixel_hash(&via_layout),
+            9954537746452454605,
+            "golden drift: arcs_layout_matches_render_portrait"
+        );
     }
 
     #[test]
     fn arcs_layout_matches_render_portrait_with_ip() {
         let (legacy, via_layout) = render_both_with(170, 320, sample_with_ip("192.168.1.100"));
         assert_eq!(legacy, via_layout, "arcs portrait mismatch (IPv4)");
+        assert_eq!(
+            pixel_hash(&via_layout),
+            14163956190879489031,
+            "golden drift: arcs_layout_matches_render_portrait_with_ip"
+        );
     }
 
     #[test]
@@ -2082,17 +2107,32 @@ mod tests {
         let (legacy, via_layout) =
             render_both_with(170, 320, sample_with_ip("2001:db8::dead:beef:1:2"));
         assert_eq!(legacy, via_layout, "arcs portrait mismatch (IPv6)");
+        assert_eq!(
+            pixel_hash(&via_layout),
+            15617094980113426996,
+            "golden drift: arcs_layout_matches_render_portrait_ipv6"
+        );
     }
 
     #[test]
     fn arcs_layout_matches_render_landscape_analogue() {
         let (legacy, via_layout) = render_both_comps(320, 170, sample(), analogue_comps());
         assert_eq!(legacy, via_layout, "arcs landscape analogue mismatch");
+        assert_eq!(
+            pixel_hash(&via_layout),
+            4911362616083430275,
+            "golden drift: arcs_layout_matches_render_landscape_analogue"
+        );
     }
 
     #[test]
     fn arcs_layout_matches_render_portrait_analogue() {
         let (legacy, via_layout) = render_both_comps(170, 320, sample(), analogue_comps());
         assert_eq!(legacy, via_layout, "arcs portrait analogue mismatch");
+        assert_eq!(
+            pixel_hash(&via_layout),
+            8763038846165929711,
+            "golden drift: arcs_layout_matches_render_portrait_analogue"
+        );
     }
 }

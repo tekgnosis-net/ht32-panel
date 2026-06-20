@@ -1419,7 +1419,7 @@ impl Face for DigitsFace {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::faces::layout::render_layout;
+    use crate::faces::layout::{pixel_hash, render_layout};
     use crate::faces::Theme;
     use crate::faces::{EnabledComplications, Face};
     use crate::rendering::Canvas;
@@ -1501,12 +1501,22 @@ mod tests {
             legacy, via_layout,
             "digits landscape mismatch (default comps)"
         );
+        assert_eq!(
+            pixel_hash(&via_layout),
+            14499470026550424998,
+            "golden drift: digits_layout_matches_render_landscape"
+        );
     }
 
     #[test]
     fn digits_layout_matches_render_landscape_with_ip() {
         let (legacy, via_layout) = render_both_with(320, 170, sample_with_ip("192.168.1.100"));
         assert_eq!(legacy, via_layout, "digits landscape mismatch (IPv4)");
+        assert_eq!(
+            pixel_hash(&via_layout),
+            16249649054145895917,
+            "golden drift: digits_layout_matches_render_landscape_with_ip"
+        );
     }
 
     #[test]
@@ -1516,24 +1526,44 @@ mod tests {
             legacy, via_layout,
             "digits portrait mismatch (default comps)"
         );
+        assert_eq!(
+            pixel_hash(&via_layout),
+            610784826769482885,
+            "golden drift: digits_layout_matches_render_portrait"
+        );
     }
 
     #[test]
     fn digits_layout_matches_render_portrait_with_ip() {
         let (legacy, via_layout) = render_both_with(170, 320, sample_with_ip("192.168.1.100"));
         assert_eq!(legacy, via_layout, "digits portrait mismatch (IPv4)");
+        assert_eq!(
+            pixel_hash(&via_layout),
+            14067710196607278586,
+            "golden drift: digits_layout_matches_render_portrait_with_ip"
+        );
     }
 
     #[test]
     fn digits_layout_matches_render_landscape_analogue() {
         let (legacy, via_layout) = render_both_comps(320, 170, sample(), analogue_comps());
         assert_eq!(legacy, via_layout, "digits landscape analogue mismatch");
+        assert_eq!(
+            pixel_hash(&via_layout),
+            6117835644777182962,
+            "golden drift: digits_layout_matches_render_landscape_analogue"
+        );
     }
 
     #[test]
     fn digits_layout_matches_render_portrait_analogue() {
         let (legacy, via_layout) = render_both_comps(170, 320, sample(), analogue_comps());
         assert_eq!(legacy, via_layout, "digits portrait analogue mismatch");
+        assert_eq!(
+            pixel_hash(&via_layout),
+            12493813038906902956,
+            "golden drift: digits_layout_matches_render_portrait_analogue"
+        );
     }
 
     /// Portrait + IPv6 (compressed): pixel-identical. Realistic addresses (<=~27 chars at
@@ -1545,5 +1575,10 @@ mod tests {
         let (legacy, via_layout) =
             render_both_with(170, 320, sample_with_ip("2001:db8::dead:beef:1:2"));
         assert_eq!(legacy, via_layout, "digits portrait IPv6 mismatch");
+        assert_eq!(
+            pixel_hash(&via_layout),
+            2213716701583771545,
+            "golden drift: digits_layout_matches_render_portrait_ipv6"
+        );
     }
 }

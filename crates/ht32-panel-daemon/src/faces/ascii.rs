@@ -1419,7 +1419,7 @@ impl AsciiFace {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::faces::layout::render_layout;
+    use crate::faces::layout::{pixel_hash, render_layout};
     use crate::faces::Theme;
     use crate::faces::{EnabledComplications, Face};
     use crate::rendering::Canvas;
@@ -1464,6 +1464,11 @@ mod tests {
             legacy, via_layout,
             "ascii landscape mismatch (default comps)"
         );
+        assert_eq!(
+            pixel_hash(&via_layout),
+            14500562842122415974,
+            "golden drift: ascii_layout_matches_render_landscape"
+        );
     }
 
     /// Landscape pixel-identical equivalence: alternate complication set (IP populated).
@@ -1471,6 +1476,11 @@ mod tests {
     fn ascii_layout_matches_render_landscape_with_ip() {
         let (legacy, via_layout) = render_both_with(320, 170, sample_with_ip("192.168.1.100"));
         assert_eq!(legacy, via_layout, "ascii landscape mismatch (IPv4)");
+        assert_eq!(
+            pixel_hash(&via_layout),
+            9832976521991581407,
+            "golden drift: ascii_layout_matches_render_landscape_with_ip"
+        );
     }
 
     /// Helper: build complications configured for ANALOGUE time.
@@ -1520,6 +1530,11 @@ mod tests {
             legacy, via_layout,
             "ascii portrait mismatch (default comps)"
         );
+        assert_eq!(
+            pixel_hash(&via_layout),
+            1684312035033353840,
+            "golden drift: ascii_layout_matches_render_portrait"
+        );
     }
 
     /// Portrait pixel-identical equivalence: IPv4 address populated.
@@ -1527,6 +1542,11 @@ mod tests {
     fn ascii_layout_matches_render_portrait_with_ip() {
         let (legacy, via_layout) = render_both_with(170, 320, sample_with_ip("192.168.1.100"));
         assert_eq!(legacy, via_layout, "ascii portrait mismatch (IPv4)");
+        assert_eq!(
+            pixel_hash(&via_layout),
+            385469884109185428,
+            "golden drift: ascii_layout_matches_render_portrait_with_ip"
+        );
     }
 
     /// Portrait + IPv6: exercises the rfind(':') / split_at two-line split path.
@@ -1556,6 +1576,11 @@ mod tests {
         let (legacy, via_layout) =
             render_both_with(170, 320, sample_with_ip("2001:db8::dead:beef:1:2"));
         assert_eq!(legacy, via_layout, "ascii portrait mismatch (IPv6 split)");
+        assert_eq!(
+            pixel_hash(&via_layout),
+            2025481704123551233,
+            "golden drift: ascii_layout_matches_render_portrait_ipv6"
+        );
     }
 
     /// Landscape ANALOGUE time: pixel-identical equivalence.
@@ -1563,6 +1588,11 @@ mod tests {
     fn ascii_layout_matches_render_landscape_analogue() {
         let (legacy, via_layout) = render_both_comps(320, 170, sample(), analogue_comps());
         assert_eq!(legacy, via_layout, "ascii landscape analogue mismatch");
+        assert_eq!(
+            pixel_hash(&via_layout),
+            10784778095611974620,
+            "golden drift: ascii_layout_matches_render_landscape_analogue"
+        );
     }
 
     /// Portrait ANALOGUE time: pixel-identical equivalence.
@@ -1570,5 +1600,10 @@ mod tests {
     fn ascii_layout_matches_render_portrait_analogue() {
         let (legacy, via_layout) = render_both_comps(170, 320, sample(), analogue_comps());
         assert_eq!(legacy, via_layout, "ascii portrait analogue mismatch");
+        assert_eq!(
+            pixel_hash(&via_layout),
+            2463712500728496286,
+            "golden drift: ascii_layout_matches_render_portrait_analogue"
+        );
     }
 }
