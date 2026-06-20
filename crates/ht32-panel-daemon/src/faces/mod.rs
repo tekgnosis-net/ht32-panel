@@ -21,6 +21,7 @@ pub use professional::ProfessionalFace;
 
 use crate::rendering::Canvas;
 use crate::sensors::data::SystemData;
+use layout::WidgetContent;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::f32::consts::PI;
@@ -244,6 +245,89 @@ pub fn draw_mini_analog_clock(
                 color,
             } => canvas.draw_line(x1, y1, x2, y2, stroke, color),
             MiniClockDraw::Circle { cx, cy, r, color } => canvas.fill_circle(cx, cy, r, color),
+        }
+    }
+}
+
+/// Maps a single [`MiniClockDraw`] spec to a stable widget id and a
+/// [`WidgetContent`] variant for use in `build_layout`.
+///
+/// The `index` parameter is the 0-based position in the slice returned by
+/// `mini_analog_clock_draws`; it is used to produce a stable static id string.
+pub fn mini_clock_draw_to_widget(draw: MiniClockDraw, index: usize) -> (&'static str, WidgetContent) {
+    // The draw order from mini_analog_clock_draws is fixed:
+    //   0 → Arc  (bezel)
+    //   1 → Line (hour hand)
+    //   2 → Line (minute hand)
+    //   3 → Circle (hub)
+    match (index, draw) {
+        (
+            _,
+            MiniClockDraw::Arc {
+                cx,
+                cy,
+                r,
+                start_angle,
+                end_angle,
+                stroke,
+                color,
+            },
+        ) => (
+            "clock_bezel",
+            WidgetContent::Arc {
+                cx,
+                cy,
+                r,
+                start_angle,
+                end_angle,
+                stroke,
+                color,
+            },
+        ),
+        (
+            1,
+            MiniClockDraw::Line {
+                x1,
+                y1,
+                x2,
+                y2,
+                stroke,
+                color,
+            },
+        ) => (
+            "clock_hour",
+            WidgetContent::Line {
+                x1,
+                y1,
+                x2,
+                y2,
+                stroke,
+                color,
+            },
+        ),
+        (
+            _,
+            MiniClockDraw::Line {
+                x1,
+                y1,
+                x2,
+                y2,
+                stroke,
+                color,
+            },
+        ) => (
+            "clock_minute",
+            WidgetContent::Line {
+                x1,
+                y1,
+                x2,
+                y2,
+                stroke,
+                color,
+            },
+        ),
+        (_, MiniClockDraw::Circle { cx, cy, r, color }) => {
+            ("clock_hub", WidgetContent::Circle { cx, cy, r, color })
         }
     }
 }
