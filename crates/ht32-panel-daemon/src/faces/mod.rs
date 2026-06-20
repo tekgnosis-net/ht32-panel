@@ -6,6 +6,7 @@
 
 #![allow(dead_code)]
 
+pub mod layout;
 mod arcs;
 mod ascii;
 mod clock;
@@ -631,6 +632,18 @@ pub trait Face: Send + Sync {
         theme: &Theme,
         complications: &EnabledComplications,
     );
+
+    /// Returns this face's typed-widget layout, or `None` to use the legacy
+    /// `render()` path. Faces migrate to `Some(..)` one at a time.
+    fn layout(
+        &self,
+        _canvas: &Canvas,
+        _data: &SystemData,
+        _theme: &Theme,
+        _complications: &EnabledComplications,
+    ) -> Option<layout::Layout> {
+        None
+    }
 }
 
 /// Creates a face by name.
