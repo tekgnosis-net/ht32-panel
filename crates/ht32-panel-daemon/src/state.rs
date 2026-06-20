@@ -677,20 +677,12 @@ impl AppState {
             let theme = Theme::from_preset(&display.theme_name);
             let mut render = self.render.write().unwrap();
 
-            let maybe_layout =
+            let layout =
                 display
                     .face
                     .layout(&render.canvas, &system_data, &theme, &display.complications);
             render.canvas.clear();
-            match maybe_layout {
-                Some(lay) => faces::layout::render_layout(&mut render.canvas, &lay),
-                None => display.face.render(
-                    &mut render.canvas,
-                    &system_data,
-                    &theme,
-                    &display.complications,
-                ),
-            }
+            faces::layout::render_layout(&mut render.canvas, &layout);
 
             // Invalidate PNG cache
             render.cached_png = None;

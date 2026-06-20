@@ -113,9 +113,9 @@ fn lighten_color(color: u32, factor: f32) -> u32 {
 
 /// A single primitive draw call for the mini analog clock.
 ///
-/// Returned by [`mini_analog_clock_draws`] so both the direct-canvas path
-/// (`draw_mini_analog_clock`) and the typed-widget Layout path can consume the
-/// same geometry without duplicating the trigonometry.
+/// Returned by [`mini_analog_clock_draws`] and mapped to widgets by
+/// [`mini_clock_draw_to_widget`], so the trigonometry lives in exactly one
+/// place for every face that embeds a mini clock complication.
 pub enum MiniClockDraw {
     Arc {
         cx: i32,
@@ -143,8 +143,8 @@ pub enum MiniClockDraw {
 }
 
 /// Computes the draw-primitive specs for a mini analog clock without touching a
-/// canvas.  The caller owns the sequencing: pass each element to either a
-/// `Canvas` call (via [`draw_mini_analog_clock`]) or a `WidgetContent` variant.
+/// canvas.  Each element is mapped to a `WidgetContent` variant via
+/// [`mini_clock_draw_to_widget`] in a face's `build_layout`.
 ///
 /// Order: Arc (bezel) → Line (hour hand) → Line (minute hand) → Circle (hub).
 pub fn mini_analog_clock_draws(
@@ -208,45 +208,6 @@ pub fn mini_analog_clock_draws(
             color: primary_color,
         },
     ]
-}
-
-/// Draws a small analog clock for use in complications.
-///
-/// This is a minimal clock face with hands, suitable for
-/// displaying as a small complication within larger faces.
-#[allow(clippy::too_many_arguments)]
-pub fn draw_mini_analog_clock(
-    canvas: &mut Canvas,
-    cx: i32,
-    cy: i32,
-    radius: u32,
-    hour: u8,
-    minute: u8,
-    primary_color: u32,
-    hand_color: u32,
-) {
-    for draw in mini_analog_clock_draws(cx, cy, radius, hour, minute, primary_color, hand_color) {
-        match draw {
-            MiniClockDraw::Arc {
-                cx,
-                cy,
-                r,
-                start_angle,
-                end_angle,
-                stroke,
-                color,
-            } => canvas.draw_arc(cx, cy, r, start_angle, end_angle, stroke, color),
-            MiniClockDraw::Line {
-                x1,
-                y1,
-                x2,
-                y2,
-                stroke,
-                color,
-            } => canvas.draw_line(x1, y1, x2, y2, stroke, color),
-            MiniClockDraw::Circle { cx, cy, r, color } => canvas.fill_circle(cx, cy, r, color),
-        }
-    }
 }
 
 /// Maps a single [`MiniClockDraw`] spec to a stable widget id and a
@@ -807,27 +768,16 @@ pub trait Face: Send + Sync {
     /// Returns the list of available complications for this face.
     fn available_complications(&self) -> Vec<Complication>;
 
-    /// Renders the face onto the canvas using current system data, theme,
-    /// and enabled complications.
-    fn render(
+    /// Builds this face's typed-widget layout from current system data, theme,
+    /// and enabled complications. The single render path: callers draw the
+    /// returned [`layout::Layout`] via [`layout::render_layout`].
+    fn layout(
         &self,
-        canvas: &mut Canvas,
+        canvas: &Canvas,
         data: &SystemData,
         theme: &Theme,
         complications: &EnabledComplications,
-    );
-
-    /// Returns this face's typed-widget layout, or `None` to use the legacy
-    /// `render()` path. Faces migrate to `Some(..)` one at a time.
-    fn layout(
-        &self,
-        _canvas: &Canvas,
-        _data: &SystemData,
-        _theme: &Theme,
-        _complications: &EnabledComplications,
-    ) -> Option<layout::Layout> {
-        None
-    }
+    ) -> layout::Layout;
 }
 
 /// Creates a face by name.

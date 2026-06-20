@@ -18,9 +18,9 @@ use crate::sensors::data::SystemData;
 
 /// A single primitive draw call for the full-size analog clock face.
 ///
-/// Returned by [`ClockFace::analog_clock_draws`] so both the direct-canvas path
-/// (`draw_clock_face`) and the typed-widget Layout path consume the identical
-/// trigonometry, guaranteeing byte-identical output.
+/// Returned by [`ClockFace::analog_clock_draws`] and consumed by the
+/// typed-widget Layout path ([`ClockFace::build_analog_clock`]), centralizing
+/// the trigonometry so the geometry is computed in exactly one place.
 enum AnalogDraw {
     Arc {
         cx: i32,
@@ -113,184 +113,13 @@ impl ClockFace {
         Self
     }
 
-    /// Draws centered text and returns its height.
-    fn draw_centered_text(
-        canvas: &mut Canvas,
-        y: i32,
-        text: &str,
-        font_size: f32,
-        color: u32,
-    ) -> i32 {
-        let (width, _) = canvas.dimensions();
-        let text_width = canvas.text_width(text, font_size);
-        let x = (width as i32 - text_width) / 2;
-        canvas.draw_text(x, y, text, font_size, color);
-        canvas.line_height(font_size)
-    }
-
-    /// Draws a digital time display with optional hostname and date.
-    fn draw_digital_time(
-        canvas: &mut Canvas,
-        hour: u8,
-        minute: u8,
-        layout: &ClockLayout,
-        colors: &FaceColors,
-        time_font_size: f32,
-    ) {
-        let (width, height) = canvas.dimensions();
-        let time_str = format!("{:02}:{:02}", hour, minute);
-        let portrait = width < 200;
-
-        // In portrait mode with font sizes 56-96, grow digits taller to fill screen height
-        // while scaling horizontally to prevent overflow
-        let (effective_font_size, x_scale) =
-            if portrait && time_font_size > 56.0 && time_font_size <= 96.0 {
-                // Calculate space for hostname and date
-                let hostname_space = if layout.show_hostname {
-                    canvas.line_height(FONT_SMALL) + 8
-                } else {
-                    0
-                };
-                let date_space = if layout.show_date && layout.date.is_some() {
-                    canvas.line_height(FONT_NORMAL) + 8
-                } else {
-                    0
-                };
-
-                // Available height for the time digits (with some margin)
-                let margin_v = 8.0;
-                let available_height =
-                    height as f32 - hostname_space as f32 - date_space as f32 - margin_v * 2.0;
-
-                // Calculate font size that would fill the available height
-                // line_height is approximately font_size * 1.2
-                let target_font_size = (available_height / 1.2).min(96.0);
-
-                // Use the larger of requested size and calculated size, capped at 96
-                let effective_size = time_font_size.max(target_font_size).min(96.0);
-
-                // Calculate horizontal scale to fit within width
-                let margin_h = 4.0;
-                let available_width = width as f32 - margin_h * 2.0;
-                let natural_width = canvas.text_width(&time_str, effective_size) as f32;
-                let scale = if natural_width > available_width {
-                    available_width / natural_width
-                } else {
-                    1.0
-                };
-
-                (effective_size, scale)
-            } else if portrait && time_font_size > 96.0 {
-                // For sizes > 96, just scale horizontally to fit
-                let margin = 4.0;
-                let available_width = width as f32 - margin * 2.0;
-                let natural_width = canvas.text_width(&time_str, time_font_size) as f32;
-                let scale = if natural_width > available_width {
-                    available_width / natural_width
-                } else {
-                    1.0
-                };
-                (time_font_size, scale)
-            } else {
-                (time_font_size, 1.0)
-            };
-
-        // Calculate total height needed
-        let time_height = canvas.line_height(effective_font_size);
-        let mut total_height = time_height;
-        if layout.show_hostname {
-            total_height += canvas.line_height(FONT_SMALL) + 4;
-        }
-        if layout.show_date && layout.date.is_some() {
-            total_height += canvas.line_height(FONT_NORMAL) + 4;
-        }
-
-        let mut y = (height as i32 - total_height) / 2;
-
-        if layout.show_hostname {
-            let h = Self::draw_centered_text(canvas, y, &layout.hostname, FONT_SMALL, colors.dim);
-            y += h + 4;
-        }
-
-        // Draw time with scaling if needed
-        if x_scale < 1.0 {
-            let text_width = canvas.text_width_scaled(&time_str, effective_font_size, x_scale);
-            let x = (width as i32 - text_width) / 2;
-            canvas.draw_text_scaled(x, y, &time_str, effective_font_size, colors.text, x_scale);
-        } else {
-            Self::draw_centered_text(canvas, y, &time_str, effective_font_size, colors.text);
-        }
-        y += time_height + 4;
-
-        if layout.show_date {
-            if let Some(date) = &layout.date {
-                Self::draw_centered_text(canvas, y, date, FONT_NORMAL, colors.dim);
-            }
-        }
-    }
-
-    /// Draws an analog clock with optional hostname above and date below.
-    fn draw_analog_clock(
-        canvas: &mut Canvas,
-        hour: u8,
-        minute: u8,
-        layout: &ClockLayout,
-        colors: &FaceColors,
-    ) {
-        let (width, height) = canvas.dimensions();
-        let margin = 10;
-
-        // Calculate space for complications
-        let hostname_height = if layout.show_hostname {
-            canvas.line_height(FONT_SMALL) + 4
-        } else {
-            0
-        };
-        let date_height = if layout.show_date && layout.date.is_some() {
-            canvas.line_height(FONT_NORMAL) + 8
-        } else {
-            0
-        };
-
-        // Calculate clock size based on available space
-        let available_height = height as i32 - margin * 2 - hostname_height - date_height;
-        let available_width = width as i32 - margin * 2;
-        let radius = (available_height.min(available_width) / 2) as u32;
-
-        // Calculate total content height and center vertically
-        let total_height = hostname_height + (radius as i32 * 2) + date_height;
-        let start_y = (height as i32 - total_height) / 2;
-
-        let cx = width as i32 / 2;
-        let mut y = start_y;
-
-        // Draw hostname above
-        if layout.show_hostname {
-            Self::draw_centered_text(canvas, y, &layout.hostname, FONT_SMALL, colors.dim);
-            y += hostname_height;
-        }
-
-        // Draw clock face (cy is center of clock)
-        let cy = y + radius as i32;
-        Self::draw_clock_face(canvas, cx, cy, radius, hour, minute, colors);
-
-        // Draw date below
-        if layout.show_date {
-            if let Some(date) = &layout.date {
-                let date_y = cy + radius as i32 + 8;
-                Self::draw_centered_text(canvas, date_y, date, FONT_NORMAL, colors.text);
-            }
-        }
-    }
-
     /// Computes the draw-primitive specs for the analog clock face (circle,
     /// markers, and hands) without touching a canvas.
     ///
-    /// Both [`Self::draw_clock_face`] (direct-canvas) and [`Self::build_layout`]
-    /// (typed widgets) consume these specs, so the floating-point trigonometry is
-    /// computed exactly once — byte-identity holds by construction.
+    /// Consumed by the typed-widget Layout path ([`Self::build_analog_clock`]),
+    /// so the floating-point trigonometry is computed in exactly one place.
     ///
-    /// Order matches the legacy `draw_clock_face`:
+    /// Order:
     ///   bezel Arc → 12 tick `Line`s → hour-hand `Line` → minute-hand `Line` → hub `Circle`.
     fn analog_clock_draws(
         cx: i32,
@@ -377,40 +206,6 @@ impl ClockFace {
         draws
     }
 
-    /// Draws the analog clock face (circle, markers, and hands).
-    fn draw_clock_face(
-        canvas: &mut Canvas,
-        cx: i32,
-        cy: i32,
-        radius: u32,
-        hour: u8,
-        minute: u8,
-        colors: &FaceColors,
-    ) {
-        for draw in Self::analog_clock_draws(cx, cy, radius, hour, minute, colors) {
-            match draw {
-                AnalogDraw::Arc {
-                    cx,
-                    cy,
-                    r,
-                    start_angle,
-                    end_angle,
-                    stroke,
-                    color,
-                } => canvas.draw_arc(cx, cy, r, start_angle, end_angle, stroke, color),
-                AnalogDraw::Line {
-                    x1,
-                    y1,
-                    x2,
-                    y2,
-                    stroke,
-                    color,
-                } => canvas.draw_line(x1, y1, x2, y2, stroke, color),
-                AnalogDraw::Circle { cx, cy, r, color } => canvas.fill_circle(cx, cy, r, color),
-            }
-        }
-    }
-
     /// Maps a single [`AnalogDraw`] spec to a stable widget id and a
     /// [`WidgetContent`] variant for use in `build_layout`.
     ///
@@ -470,10 +265,9 @@ impl ClockFace {
         }
     }
 
-    /// Pushes a centered-text widget mirroring [`Self::draw_centered_text`] and
-    /// returns its line height (the same value `draw_centered_text` returns).
+    /// Pushes a horizontally-centered text widget and returns its line height.
     ///
-    /// The x position is computed identically: `(width - text_width) / 2`.
+    /// The x position is computed as `(width - text_width) / 2`.
     fn push_centered_text(
         layout: &mut Layout,
         canvas: &Canvas,
@@ -507,8 +301,8 @@ impl ClockFace {
         canvas.line_height(font_size)
     }
 
-    /// Builds the digital-time widgets, mirroring [`Self::draw_digital_time`]
-    /// exactly (including the portrait font-scaling branch).
+    /// Builds the digital-time widgets, including the portrait font-scaling
+    /// branch (size 56..=96 grows digits taller and scales horizontally).
     fn build_digital_time(
         layout: &mut Layout,
         canvas: &Canvas,
@@ -644,8 +438,8 @@ impl ClockFace {
         }
     }
 
-    /// Builds the analog-clock widgets, mirroring [`Self::draw_analog_clock`]
-    /// (and the geometry of [`Self::draw_clock_face`]) exactly.
+    /// Builds the analog-clock widgets (hostname, bezel + tick/hand geometry
+    /// from [`Self::analog_clock_draws`], and the optional date).
     fn build_analog_clock(
         layout: &mut Layout,
         canvas: &Canvas,
@@ -734,14 +528,14 @@ impl ClockFace {
     }
 
     /// Builds the typed-widget layout, covering ALL configs (digital and analog
-    /// time modes), mirroring [`Self::render`] byte-identically.
+    /// time modes), drawn by [`crate::faces::layout::render_layout`].
     fn build_layout(
         &self,
         canvas: &Canvas,
         data: &SystemData,
         theme: &Theme,
         comp: &EnabledComplications,
-    ) -> Option<Layout> {
+    ) -> Layout {
         let colors = FaceColors::from_theme(theme);
         let is_on = |id: &str| comp.is_enabled(self.name(), id, false);
 
@@ -783,7 +577,7 @@ impl ClockFace {
         } else {
             Self::build_analog_clock(&mut layout, canvas, data.hour, data.minute, &clock, &colors);
         }
-        Some(layout)
+        layout
     }
 }
 
@@ -806,54 +600,13 @@ impl Face for ClockFace {
         ]
     }
 
-    fn render(
-        &self,
-        canvas: &mut Canvas,
-        data: &SystemData,
-        theme: &Theme,
-        comp: &EnabledComplications,
-    ) {
-        let colors = FaceColors::from_theme(theme);
-        let is_on = |id: &str| comp.is_enabled(self.name(), id, false);
-
-        // Get date format option
-        let date_format = comp
-            .get_option(
-                self.name(),
-                complication_names::DATE,
-                complication_options::DATE_FORMAT,
-            )
-            .map(|s| s.as_str())
-            .unwrap_or(date_formats::SHORT);
-
-        // Get digital time size option
-        let time_size = comp
-            .get_option(self.name(), "digital_time", complication_options::SIZE)
-            .and_then(|s| s.parse::<f32>().ok())
-            .unwrap_or(DEFAULT_TIME_SIZE);
-
-        // Build layout options
-        let layout = ClockLayout {
-            show_hostname: is_on("hostname"),
-            show_date: is_on(complication_names::DATE),
-            hostname: data.hostname.clone(),
-            date: data.format_date(date_format),
-        };
-
-        if is_on("digital_time") {
-            Self::draw_digital_time(canvas, data.hour, data.minute, &layout, &colors, time_size);
-        } else {
-            Self::draw_analog_clock(canvas, data.hour, data.minute, &layout, &colors);
-        }
-    }
-
     fn layout(
         &self,
         canvas: &Canvas,
         data: &SystemData,
         theme: &Theme,
         comp: &EnabledComplications,
-    ) -> Option<Layout> {
+    ) -> Layout {
         self.build_layout(canvas, data, theme, comp)
     }
 }
@@ -879,7 +632,7 @@ mod tests {
     }
 
     /// Default complications: digital_time OFF (analog), hostname OFF, date OFF.
-    fn render_both(width: u32, height: u32) -> (Vec<u8>, Vec<u8>) {
+    fn render_both(width: u32, height: u32) -> Vec<u8> {
         render_both_comps(width, height, sample(), EnabledComplications::new())
     }
 
@@ -888,24 +641,17 @@ mod tests {
         height: u32,
         data: SystemData,
         comps: EnabledComplications,
-    ) -> (Vec<u8>, Vec<u8>) {
+    ) -> Vec<u8> {
         let face = ClockFace::new();
         let theme = Theme::from_preset("default");
 
-        let mut legacy = Canvas::new(width, height);
-        legacy.set_background(0);
-        legacy.clear();
-        face.render(&mut legacy, &data, &theme, &comps);
-
         let mut via_layout = Canvas::new(width, height);
-        let lay = face
-            .layout(&via_layout, &data, &theme, &comps)
-            .expect("layout() must return Some");
+        let lay = face.layout(&via_layout, &data, &theme, &comps);
         via_layout.set_background(0);
         via_layout.clear();
         render_layout(&mut via_layout, &lay);
 
-        (legacy.pixels().to_vec(), via_layout.pixels().to_vec())
+        via_layout.pixels().to_vec()
     }
 
     /// Complications with the digital_time toggle enabled (digital mode).
@@ -960,8 +706,7 @@ mod tests {
 
     #[test]
     fn clock_layout_matches_render_landscape_analog() {
-        let (legacy, via_layout) = render_both(320, 170);
-        assert_eq!(legacy, via_layout, "clock landscape analog mismatch");
+        let via_layout = render_both(320, 170);
         assert_eq!(
             pixel_hash(&via_layout),
             13417756890114301721,
@@ -971,8 +716,7 @@ mod tests {
 
     #[test]
     fn clock_layout_matches_render_portrait_analog() {
-        let (legacy, via_layout) = render_both(170, 320);
-        assert_eq!(legacy, via_layout, "clock portrait analog mismatch");
+        let via_layout = render_both(170, 320);
         assert_eq!(
             pixel_hash(&via_layout),
             479876432683237793,
@@ -984,9 +728,7 @@ mod tests {
 
     #[test]
     fn clock_layout_matches_render_landscape_analog_full() {
-        let (legacy, via_layout) =
-            render_both_comps(320, 170, sample_with_date(), analog_full_comps());
-        assert_eq!(legacy, via_layout, "clock landscape analog full mismatch");
+        let via_layout = render_both_comps(320, 170, sample_with_date(), analog_full_comps());
         assert_eq!(
             pixel_hash(&via_layout),
             3888933470548481487,
@@ -996,9 +738,7 @@ mod tests {
 
     #[test]
     fn clock_layout_matches_render_portrait_analog_full() {
-        let (legacy, via_layout) =
-            render_both_comps(170, 320, sample_with_date(), analog_full_comps());
-        assert_eq!(legacy, via_layout, "clock portrait analog full mismatch");
+        let via_layout = render_both_comps(170, 320, sample_with_date(), analog_full_comps());
         assert_eq!(
             pixel_hash(&via_layout),
             14494316605444689504,
@@ -1010,8 +750,7 @@ mod tests {
 
     #[test]
     fn clock_layout_matches_render_landscape_digital() {
-        let (legacy, via_layout) = render_both_comps(320, 170, sample(), digital_comps());
-        assert_eq!(legacy, via_layout, "clock landscape digital mismatch");
+        let via_layout = render_both_comps(320, 170, sample(), digital_comps());
         assert_eq!(
             pixel_hash(&via_layout),
             5840807577594969307,
@@ -1021,8 +760,7 @@ mod tests {
 
     #[test]
     fn clock_layout_matches_render_portrait_digital() {
-        let (legacy, via_layout) = render_both_comps(170, 320, sample(), digital_comps());
-        assert_eq!(legacy, via_layout, "clock portrait digital mismatch");
+        let via_layout = render_both_comps(170, 320, sample(), digital_comps());
         assert_eq!(
             pixel_hash(&via_layout),
             15006201191712943095,
@@ -1034,9 +772,7 @@ mod tests {
 
     #[test]
     fn clock_layout_matches_render_landscape_digital_full() {
-        let (legacy, via_layout) =
-            render_both_comps(320, 170, sample_with_date(), digital_full_comps());
-        assert_eq!(legacy, via_layout, "clock landscape digital full mismatch");
+        let via_layout = render_both_comps(320, 170, sample_with_date(), digital_full_comps());
         assert_eq!(
             pixel_hash(&via_layout),
             1161514971122122895,
@@ -1046,9 +782,7 @@ mod tests {
 
     #[test]
     fn clock_layout_matches_render_portrait_digital_full() {
-        let (legacy, via_layout) =
-            render_both_comps(170, 320, sample_with_date(), digital_full_comps());
-        assert_eq!(legacy, via_layout, "clock portrait digital full mismatch");
+        let via_layout = render_both_comps(170, 320, sample_with_date(), digital_full_comps());
         assert_eq!(
             pixel_hash(&via_layout),
             3761932041278855023,
@@ -1061,9 +795,7 @@ mod tests {
 
     #[test]
     fn clock_layout_matches_render_portrait_digital_scaled() {
-        let (legacy, via_layout) =
-            render_both_comps(170, 320, sample_with_date(), digital_scaled_comps());
-        assert_eq!(legacy, via_layout, "clock portrait digital scaled mismatch");
+        let via_layout = render_both_comps(170, 320, sample_with_date(), digital_scaled_comps());
         assert_eq!(
             pixel_hash(&via_layout),
             4076598659137079727,
