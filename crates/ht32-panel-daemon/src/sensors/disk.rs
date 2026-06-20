@@ -21,6 +21,8 @@ pub struct DiskSensor {
     read_history: VecDeque<f64>,
     /// History of write rates (bytes/sec)
     write_history: VecDeque<f64>,
+    /// Monotonic count of combined-history samples ever pushed.
+    samples_pushed: u64,
 }
 
 impl DiskSensor {
@@ -37,6 +39,7 @@ impl DiskSensor {
             history: VecDeque::with_capacity(HISTORY_SIZE),
             read_history: VecDeque::with_capacity(HISTORY_SIZE),
             write_history: VecDeque::with_capacity(HISTORY_SIZE),
+            samples_pushed: 0,
         }
     }
 
@@ -109,6 +112,37 @@ impl DiskSensor {
     pub fn write_history(&self) -> &VecDeque<f64> {
         &self.write_history
     }
+
+    /// Returns the total number of combined-history samples ever pushed.
+    ///
+    /// This monotonic counter lets wrap-around graph renderers place sample `i`
+    /// at column `i % HISTORY_SIZE` without ambiguity after the ring wraps.
+    pub fn sample_count(&self) -> u64 {
+        self.samples_pushed
+    }
+
+    /// Appends one tick's measurements to all three history rings and increments
+    /// the monotonic sample counter.
+    ///
+    /// Extracted from `sample()` so unit tests can drive history without needing
+    /// `/proc/diskstats`.
+    fn record_sample(&mut self, combined: f64, read: f64, write: f64) {
+        if self.history.len() >= HISTORY_SIZE {
+            self.history.pop_front();
+        }
+        self.history.push_back(combined);
+        self.samples_pushed += 1;
+
+        if self.read_history.len() >= HISTORY_SIZE {
+            self.read_history.pop_front();
+        }
+        self.read_history.push_back(read);
+
+        if self.write_history.len() >= HISTORY_SIZE {
+            self.write_history.pop_front();
+        }
+        self.write_history.push_back(write);
+    }
 }
 
 impl Sensor for DiskSensor {
@@ -129,22 +163,9 @@ impl Sensor for DiskSensor {
                     self.last_read_rate = (read_delta as f64 * SECTOR_SIZE) / elapsed;
                     self.last_write_rate = (write_delta as f64 * SECTOR_SIZE) / elapsed;
 
-                    // Record combined rate in history
+                    // Record combined and separate histories (increments samples_pushed).
                     let combined = self.last_read_rate + self.last_write_rate;
-                    if self.history.len() >= HISTORY_SIZE {
-                        self.history.pop_front();
-                    }
-                    self.history.push_back(combined);
-
-                    // Record separate read/write histories
-                    if self.read_history.len() >= HISTORY_SIZE {
-                        self.read_history.pop_front();
-                    }
-                    self.read_history.push_back(self.last_read_rate);
-                    if self.write_history.len() >= HISTORY_SIZE {
-                        self.write_history.pop_front();
-                    }
-                    self.write_history.push_back(self.last_write_rate);
+                    self.record_sample(combined, self.last_read_rate, self.last_write_rate);
                 }
             }
 
@@ -167,5 +188,25 @@ impl Sensor for DiskSensor {
 
     fn unit(&self) -> &str {
         "KB/s"
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn disk_sensor_counts_samples() {
+        let mut s = DiskSensor::new("sda");
+        let before = s.sample_count();
+        s.record_sample(1.0, 0.5, 0.5);
+        s.record_sample(2.0, 1.0, 1.0);
+        assert_eq!(s.sample_count(), before + 2);
+    }
+
+    #[test]
+    fn disk_sensor_sample_count_starts_at_zero() {
+        let s = DiskSensor::new("sda");
+        assert_eq!(s.sample_count(), 0);
     }
 }

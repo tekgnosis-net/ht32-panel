@@ -177,6 +177,8 @@ impl Sensors {
             net_rx_history: self.network.rx_history().clone(),
             net_tx_history: self.network.tx_history().clone(),
             display_ip,
+            disk_sample_count: self.disk.sample_count(),
+            net_sample_count: self.network.sample_count(),
         }
     }
 }

@@ -32,6 +32,8 @@ pub struct NetworkSensor {
     rx_history: VecDeque<f64>,
     /// History of transmit rates (bytes/sec)
     tx_history: VecDeque<f64>,
+    /// Monotonic count of combined-history samples ever pushed.
+    samples_pushed: u64,
 }
 
 impl NetworkSensor {
@@ -53,6 +55,7 @@ impl NetworkSensor {
             history: VecDeque::with_capacity(HISTORY_SIZE),
             rx_history: VecDeque::with_capacity(HISTORY_SIZE),
             tx_history: VecDeque::with_capacity(HISTORY_SIZE),
+            samples_pushed: 0,
         }
     }
 
@@ -189,6 +192,37 @@ impl NetworkSensor {
         &self.tx_history
     }
 
+    /// Returns the total number of combined-history samples ever pushed.
+    ///
+    /// This monotonic counter lets wrap-around graph renderers place sample `i`
+    /// at column `i % HISTORY_SIZE` without ambiguity after the ring wraps.
+    pub fn sample_count(&self) -> u64 {
+        self.samples_pushed
+    }
+
+    /// Appends one tick's measurements to all three history rings and increments
+    /// the monotonic sample counter.
+    ///
+    /// Extracted from `sample()` so unit tests can drive history without needing
+    /// `/sys/class/net`.
+    fn record_sample(&mut self, combined: f64, rx: f64, tx: f64) {
+        if self.history.len() >= HISTORY_SIZE {
+            self.history.pop_front();
+        }
+        self.history.push_back(combined);
+        self.samples_pushed += 1;
+
+        if self.rx_history.len() >= HISTORY_SIZE {
+            self.rx_history.pop_front();
+        }
+        self.rx_history.push_back(rx);
+
+        if self.tx_history.len() >= HISTORY_SIZE {
+            self.tx_history.pop_front();
+        }
+        self.tx_history.push_back(tx);
+    }
+
     /// Returns the IPv4 address for this interface (cached, refreshed every 30s).
     pub fn ipv4_address(&mut self) -> Option<String> {
         self.refresh_ip_cache();
@@ -321,22 +355,9 @@ impl Sensor for NetworkSensor {
                     self.last_rx_rate = rx_delta as f64 / elapsed;
                     self.last_tx_rate = tx_delta as f64 / elapsed;
 
-                    // Record combined rate in history
+                    // Record combined and separate histories (increments samples_pushed).
                     let combined = self.last_rx_rate + self.last_tx_rate;
-                    if self.history.len() >= HISTORY_SIZE {
-                        self.history.pop_front();
-                    }
-                    self.history.push_back(combined);
-
-                    // Record separate rx/tx histories
-                    if self.rx_history.len() >= HISTORY_SIZE {
-                        self.rx_history.pop_front();
-                    }
-                    self.rx_history.push_back(self.last_rx_rate);
-                    if self.tx_history.len() >= HISTORY_SIZE {
-                        self.tx_history.pop_front();
-                    }
-                    self.tx_history.push_back(self.last_tx_rate);
+                    self.record_sample(combined, self.last_rx_rate, self.last_tx_rate);
                 }
             }
 
@@ -359,5 +380,25 @@ impl Sensor for NetworkSensor {
 
     fn unit(&self) -> &str {
         "KB/s"
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn network_sensor_counts_samples() {
+        let mut s = NetworkSensor::new("eth0");
+        let before = s.sample_count();
+        s.record_sample(1.0, 0.8, 0.2);
+        s.record_sample(2.0, 1.5, 0.5);
+        assert_eq!(s.sample_count(), before + 2);
+    }
+
+    #[test]
+    fn network_sensor_sample_count_starts_at_zero() {
+        let s = NetworkSensor::new("eth0");
+        assert_eq!(s.sample_count(), 0);
     }
 }

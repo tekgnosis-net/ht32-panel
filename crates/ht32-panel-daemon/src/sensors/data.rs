@@ -117,6 +117,10 @@ pub struct SystemData {
     pub net_tx_history: VecDeque<f64>,
     /// IP address to display (based on preference)
     pub display_ip: Option<String>,
+    /// Monotonic count of disk combined-history samples ever pushed (for wrap-around graphs).
+    pub disk_sample_count: u64,
+    /// Monotonic count of network combined-history samples ever pushed (for wrap-around graphs).
+    pub net_sample_count: u64,
 }
 
 impl SystemData {
