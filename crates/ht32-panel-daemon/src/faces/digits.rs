@@ -1535,4 +1535,15 @@ mod tests {
         let (legacy, via_layout) = render_both_comps(170, 320, sample(), analogue_comps());
         assert_eq!(legacy, via_layout, "digits portrait analogue mismatch");
     }
+
+    /// Portrait + IPv6 (compressed): pixel-identical. Realistic addresses (<=~27 chars at
+    /// FONT_SMALL) fit within the 170px portrait width. NOTE: a fully-expanded 39-char IPv6
+    /// overflows `draw_text` (pre-existing in render(); digits has no IP-wrap branch) — both
+    /// paths overflow identically, so the migration is faithful; wrapping is a separate feature.
+    #[test]
+    fn digits_layout_matches_render_portrait_ipv6() {
+        let (legacy, via_layout) =
+            render_both_with(170, 320, sample_with_ip("2001:db8::dead:beef:1:2"));
+        assert_eq!(legacy, via_layout, "digits portrait IPv6 mismatch");
+    }
 }
