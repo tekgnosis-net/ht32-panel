@@ -43,16 +43,16 @@
 <nav>
   <a href="index.html">&larr; Home</a>
   <a href="config.html">Configuration</a>
-  <a href="https://github.com/ananthb/ht32-panel/releases">Releases</a>
+  <a href="https://github.com/tekgnosis-net/ht32-panel/releases">Releases</a>
 </nav>
 
 <p>Download the latest release from
-<a href="https://github.com/ananthb/ht32-panel/releases">GitHub Releases</a>
+<a href="https://github.com/tekgnosis-net/ht32-panel/releases">GitHub Releases</a>
 or use one of the methods below.</p>
 
 <h2>Debian / Ubuntu</h2>
 <pre><code class="language-bash"># Download and install the .deb package
-curl -LO https://github.com/ananthb/ht32-panel/releases/latest/download/ht32-panel_VERSION_amd64.deb
+curl -LO https://github.com/tekgnosis-net/ht32-panel/releases/latest/download/ht32-panel_VERSION_amd64.deb
 sudo dpkg -i ht32-panel_VERSION_amd64.deb
 sudo apt-get install -f</code></pre>
 <p>The package automatically configures the apt repository for future updates.
@@ -60,20 +60,14 @@ Run <code>sudo apt update &amp;&amp; sudo apt upgrade</code> to receive new vers
 
 <h2>Fedora / RHEL</h2>
 <pre><code class="language-bash"># Download and install the .rpm package
-curl -LO https://github.com/ananthb/ht32-panel/releases/latest/download/ht32-panel-VERSION.x86_64.rpm
+curl -LO https://github.com/tekgnosis-net/ht32-panel/releases/latest/download/ht32-panel-VERSION.x86_64.rpm
 sudo dnf install ./ht32-panel-VERSION.x86_64.rpm</code></pre>
 <p>The package automatically configures the dnf repository for future updates.
 Run <code>sudo dnf upgrade</code> to receive new versions.</p>
 
-<h2>AppImage</h2>
-<pre><code class="language-bash"># Download and run the AppImage
-curl -LO https://github.com/ananthb/ht32-panel/releases/latest/download/ht32-panel-VERSION-x86_64.AppImage
-chmod +x ht32-panel-*-x86_64.AppImage
-./ht32-panel-*-x86_64.AppImage</code></pre>
-
 <h2>Tarball</h2>
 <pre><code class="language-bash"># Download and extract the tarball
-curl -LO https://github.com/ananthb/ht32-panel/releases/latest/download/ht32-panel-VERSION-x86_64-linux.tar.gz
+curl -LO https://github.com/tekgnosis-net/ht32-panel/releases/latest/download/ht32-panel-VERSION-x86_64-linux.tar.gz
 tar -xzf ht32-panel-*-x86_64-linux.tar.gz
 
 # Run with a config file
@@ -82,7 +76,7 @@ tar -xzf ht32-panel-*-x86_64-linux.tar.gz
 <h2>NixOS (System Service)</h2>
 <p>Add the flake input to your NixOS flake:</p>
 <pre><code class="language-nix">{
-  inputs.ht32-panel.url = "github:ananthb/ht32-panel";
+  inputs.ht32-panel.url = "github:tekgnosis-net/ht32-panel";
 }</code></pre>
 <p>Then enable the module in your NixOS configuration:</p>
 <pre><code class="language-nix">{ inputs, ... }:
@@ -98,7 +92,7 @@ tar -xzf ht32-panel-*-x86_64-linux.tar.gz
 <p>Run the daemon as a user service with the session D-Bus bus.</p>
 <p>Add the flake input:</p>
 <pre><code class="language-nix">{
-  inputs.ht32-panel.url = "github:ananthb/ht32-panel";
+  inputs.ht32-panel.url = "github:tekgnosis-net/ht32-panel";
 }</code></pre>
 <p>In your Home Manager configuration:</p>
 <pre><code class="language-nix">{ inputs, ... }:
@@ -107,7 +101,6 @@ tar -xzf ht32-panel-*-x86_64-linux.tar.gz
 
   services.ht32-panel = {
     enable = true;
-    applet.enable = true;  # optional system tray applet
   };
 }</code></pre>
 <p>For hardware access, also add udev rules to your NixOS configuration:</p>
@@ -123,10 +116,10 @@ tar -xzf ht32-panel-*-x86_64-linux.tar.gz
 
 <h2>Nix</h2>
 <pre><code class="language-bash"># Run directly from the flake
-nix run github:ananthb/ht32-panel</code></pre>
+nix run github:tekgnosis-net/ht32-panel</code></pre>
 
 <h2>From Source</h2>
-<pre><code class="language-bash">git clone https://github.com/ananthb/ht32-panel
+<pre><code class="language-bash">git clone https://github.com/tekgnosis-net/ht32-panel
 cd ht32-panel
 cargo build --release</code></pre>
 
