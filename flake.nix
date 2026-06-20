@@ -57,7 +57,7 @@
 
           meta = with pkgs.lib; {
             description = "HT32 Panel - Mini PC Display & LED Control";
-            homepage = "https://github.com/ananthb/ht32-panel";
+            homepage = "https://github.com/tekgnosis-net/ht32-panel";
             license = licenses.agpl3Plus;
             platforms = [ "x86_64-linux" ];
           };

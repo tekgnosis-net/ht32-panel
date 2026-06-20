@@ -2,10 +2,10 @@ name: ht32-panel
 arch: ${ARCH}
 platform: linux
 version: ${VERSION}
-maintainer: Ananth Bhaskararaman <ab@calculon.tech>
+maintainer: tekgnosis-net
 description: Front-panel display and LED control for mini PCs with HT32-based LCD
-vendor: HT32 Panel Contributors
-homepage: https://github.com/ananthb/ht32-panel
+vendor: tekgnosis-net
+homepage: https://github.com/tekgnosis-net/ht32-panel
 license: AGPL-3.0-or-later
 
 contents:
