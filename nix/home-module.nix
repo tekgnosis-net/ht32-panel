@@ -107,26 +107,6 @@ in
       };
     };
 
-    applet = {
-      enable = lib.mkOption {
-        type = lib.types.bool;
-        default = false;
-        description = "Enable the system tray applet for desktop environments.";
-      };
-
-      package = lib.mkOption {
-        type = lib.types.nullOr lib.types.package;
-        default = null;
-        description = "The ht32-panel-applet package to use.";
-      };
-
-      autostart = lib.mkOption {
-        type = lib.types.bool;
-        default = true;
-        description = "Whether to autostart the applet on login.";
-      };
-    };
-
     extraSettings = lib.mkOption {
       type = settingsFormat.type;
       default = { };
@@ -165,8 +145,7 @@ in
 
     # Add packages to user environment
     home.packages = [ cfg.package ]
-      ++ lib.optional (cfg.cli.package != null) cfg.cli.package
-      ++ lib.optional (cfg.applet.enable && cfg.applet.package != null) cfg.applet.package;
+      ++ lib.optional (cfg.cli.package != null) cfg.cli.package;
 
     # D-Bus session service file for on-demand activation
     xdg.dataFile."dbus-1/services/org.ht32panel.Daemon.service" = lib.mkIf (cfg.dbus.bus != "system") {
@@ -221,20 +200,6 @@ in
     # Enable the service to auto-start
     systemd.user.startServices = "sd-switch";
 
-    # Applet autostart
-    xdg.configFile."autostart/ht32-panel-applet.desktop" = lib.mkIf (cfg.applet.enable && cfg.applet.autostart && cfg.applet.package != null) {
-      text = ''
-        [Desktop Entry]
-        Type=Application
-        Name=HT32 Panel Applet
-        Comment=System tray applet for HT32 Panel control
-        Exec=${cfg.applet.package}/bin/ht32-panel-applet
-        Icon=display-brightness-symbolic
-        Categories=System;Monitor;
-        StartupNotify=false
-        X-GNOME-Autostart-enabled=true
-      '';
-    };
   };
 
   meta.maintainers = [ ];

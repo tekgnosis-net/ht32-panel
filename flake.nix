@@ -41,12 +41,6 @@
           dbus
         ];
 
-        appletBuildInputs = buildInputs ++ (with pkgs; [
-          glib
-          gtk3
-          libappindicator-gtk3
-        ]);
-
         cargoArgs = {
           pname = "ht32-panel";
           inherit version;
@@ -75,7 +69,7 @@
               entry = let
                 depsPath = pkgs.lib.makeBinPath ([ rustToolchain ] ++ nativeBuildInputs);
                 pkgConfigPath = pkgs.lib.makeSearchPath "lib/pkgconfig"
-                  (map (p: if p ? dev then p.dev else p) appletBuildInputs);
+                  (map (p: if p ? dev then p.dev else p) buildInputs);
               in toString (pkgs.writeShellScript "clippy-hook" ''
                 export PATH="${depsPath}''${PATH:+:$PATH}"
                 export PKG_CONFIG_PATH="${pkgConfigPath}"
@@ -119,139 +113,27 @@
             cargoBuildFlags = [ "-p" "ht32-panel-cli" ];
           });
 
-          ht32-panel-applet = pkgs.rustPlatform.buildRustPackage (cargoArgs // {
-            pname = "ht32-panel-applet";
-            cargoBuildFlags = [ "-p" "ht32-panel-applet" ];
-            buildInputs = appletBuildInputs;
-          });
-
           release-tarball = let
             pkg = self.packages.${system}.default;
-            applet = self.packages.${system}.ht32-panel-applet;
           in pkgs.runCommand "ht32-panel-${version}-x86_64-linux.tar.gz" {
             nativeBuildInputs = [ pkgs.gzip pkgs.patchelf ];
           } ''
             mkdir -p dist/config
             cp ${pkg}/bin/ht32paneld dist/
             cp ${pkg}/bin/ht32panelctl dist/
-            cp ${applet}/bin/ht32-panel-applet dist/
-            chmod +w dist/ht32paneld dist/ht32panelctl dist/ht32-panel-applet
+            chmod +w dist/ht32paneld dist/ht32panelctl
             patchelf --remove-rpath dist/ht32paneld
             patchelf --remove-rpath dist/ht32panelctl
-            patchelf --remove-rpath dist/ht32-panel-applet
             cp -r ${pkg}/share/ht32-panel/config/* dist/config/
             tar -czvf $out -C dist .
-          '';
-
-          release-appimage = let
-            pkg = self.packages.${system}.default;
-            applet = self.packages.${system}.ht32-panel-applet;
-
-            appimageRuntime = pkgs.fetchurl {
-              url = "https://github.com/AppImage/type2-runtime/releases/download/20251108/runtime-x86_64";
-              hash = "sha256-L8qLRDySUQ8Ug6iD9gBhrQm0a5eLJjHIB82HOkfsJg0=";
-            };
-
-            libDeps = with pkgs; [
-              hidapi
-              libusb1
-              udev
-              systemd
-              dbus
-              glib
-              gtk3
-              libappindicator-gtk3
-              pango
-              cairo
-              gdk-pixbuf
-              atk
-              harfbuzz
-              fontconfig
-              freetype
-              libGL
-              xorg.libX11
-              xorg.libXcursor
-              xorg.libXrandr
-              xorg.libXi
-              xorg.libXext
-              xorg.libXrender
-              xorg.libXfixes
-              xorg.libXcomposite
-              xorg.libXdamage
-              xorg.libxcb
-              libxkbcommon
-              wayland
-            ];
-          in pkgs.runCommand "ht32-panel-${version}-x86_64.AppImage" {
-            nativeBuildInputs = with pkgs; [ squashfsTools patchelf ];
-          } ''
-            # Create AppDir structure
-            mkdir -p AppDir/usr/bin
-            mkdir -p AppDir/usr/lib
-            mkdir -p AppDir/usr/share/applications
-            mkdir -p AppDir/usr/share/icons/hicolor/scalable/apps
-
-            # Copy binaries and strip Nix RPATH
-            cp ${pkg}/bin/ht32paneld AppDir/usr/bin/
-            cp ${pkg}/bin/ht32panelctl AppDir/usr/bin/
-            cp ${applet}/bin/ht32-panel-applet AppDir/usr/bin/
-            chmod +w AppDir/usr/bin/*
-            patchelf --remove-rpath AppDir/usr/bin/ht32paneld
-            patchelf --remove-rpath AppDir/usr/bin/ht32panelctl
-            patchelf --remove-rpath AppDir/usr/bin/ht32-panel-applet
-
-            # Bundle shared libraries so the AppImage is self-contained.
-            for dir in ${pkgs.lib.concatStringsSep " " (map (d: "${d}/lib") libDeps)}; do
-              if [ -d "$dir" ]; then
-                for so in "$dir"/*.so "$dir"/*.so.*; do
-                  [ -e "$so" ] || continue
-                  cp -n "$(readlink -f "$so")" "AppDir/usr/lib/$(basename "$so")" 2>/dev/null || true
-                done
-              fi
-            done
-
-            # Desktop file at root (required by AppImage spec)
-            cp ${./packaging/org.ht32panel.Daemon.desktop} AppDir/ht32-panel.desktop
-            cp ${./packaging/org.ht32panel.Daemon.desktop} AppDir/usr/share/applications/
-
-            # Icon at root (required by AppImage spec)
-            cp ${./packaging/org.ht32panel.Daemon.svg} AppDir/ht32-panel.svg
-            cp ${./packaging/org.ht32panel.Daemon.svg} AppDir/usr/share/icons/hicolor/scalable/apps/org.ht32panel.Daemon.svg
-            cp ${./packaging/org.ht32panel.Daemon.svg} AppDir/.DirIcon
-
-            # Create AppRun launcher
-            cat > AppDir/AppRun << 'APPRUN'
-#!/bin/bash
-set -e
-SELF=$(readlink -f "$0")
-APPDIR=''${SELF%/*}
-
-export LD_LIBRARY_PATH="''${APPDIR}/usr/lib:''${LD_LIBRARY_PATH}"
-
-# GTK/GLib settings
-export GSETTINGS_SCHEMA_DIR="/usr/share/glib-2.0/schemas:''${GSETTINGS_SCHEMA_DIR}"
-export GDK_PIXBUF_MODULE_FILE="/usr/lib/gdk-pixbuf-2.0/2.10.0/loaders.cache"
-
-exec "''${APPDIR}/usr/bin/ht32-panel-applet" "$@"
-APPRUN
-            chmod +x AppDir/AppRun
-
-            # Create squashfs
-            mksquashfs AppDir appimage.squashfs -root-owned -noappend -comp zstd -quiet -no-progress
-
-            # Combine runtime + squashfs to create AppImage
-            cat ${appimageRuntime} appimage.squashfs > $out
-            chmod +x $out
           '';
 
           # Combined release with all artifacts for Garnix
           release = let
             tarball = self.packages.${system}.release-tarball;
-            appimage = self.packages.${system}.release-appimage;
           in pkgs.runCommand "ht32-panel-${version}-release" {} ''
             mkdir -p $out
             cp ${tarball} $out/ht32-panel-${version}-x86_64-linux.tar.gz
-            cp ${appimage} $out/ht32-panel-${version}-x86_64.AppImage
           '';
         };
 
@@ -271,7 +153,7 @@ APPRUN
               pkgs.clippy
               pkgs.rustPlatform.cargoSetupHook
             ];
-            buildInputs = appletBuildInputs;
+            buildInputs = buildInputs;
             buildPhase = ''
               runHook preBuild
               cargo clippy --workspace --all-targets --offline -- -D warnings
@@ -300,7 +182,7 @@ APPRUN
 
             # Python (for flatpak-cargo-generator)
             (python3.withPackages (ps: [ ps.aiohttp ps.toml ]))
-          ]) ++ nativeBuildInputs ++ appletBuildInputs;
+          ]) ++ nativeBuildInputs ++ buildInputs;
 
           RUST_BACKTRACE = "1";
           RUST_LOG = "info";
@@ -325,7 +207,6 @@ APPRUN
         imports = [ ./nix/module.nix ];
         config = lib.mkIf config.services.ht32-panel.enable {
           services.ht32-panel.package = lib.mkDefault self.packages.${pkgs.stdenv.hostPlatform.system}.default;
-          services.ht32-panel.applet.package = lib.mkDefault self.packages.${pkgs.stdenv.hostPlatform.system}.ht32-panel-applet;
         };
       };
       nixosModules.ht32-panel = self.nixosModules.default;
@@ -364,7 +245,6 @@ APPRUN
         config = lib.mkIf config.services.ht32-panel.enable {
           services.ht32-panel.package = lib.mkDefault self.packages.${pkgs.stdenv.hostPlatform.system}.default;
           services.ht32-panel.cli.package = lib.mkDefault self.packages.${pkgs.stdenv.hostPlatform.system}.ht32panelctl;
-          services.ht32-panel.applet.package = lib.mkDefault self.packages.${pkgs.stdenv.hostPlatform.system}.ht32-panel-applet;
         };
       };
       homeManagerModules.ht32-panel = self.homeManagerModules.default;
@@ -373,7 +253,6 @@ APPRUN
         ht32-panel = self.packages.${prev.system}.default;
         ht32paneld = self.packages.${prev.system}.ht32paneld;
         ht32panelctl = self.packages.${prev.system}.ht32panelctl;
-        ht32-panel-applet = self.packages.${prev.system}.ht32-panel-applet;
       };
     };
 }

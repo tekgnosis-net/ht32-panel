@@ -122,26 +122,6 @@ in
       description = "Whether to open the firewall port for the web interface.";
     };
 
-    applet = {
-      enable = lib.mkOption {
-        type = lib.types.bool;
-        default = false;
-        description = "Enable the system tray applet for desktop environments.";
-      };
-
-      package = lib.mkOption {
-        type = lib.types.nullOr lib.types.package;
-        default = null;
-        description = "The ht32-panel-applet package to use.";
-      };
-
-      autostart = lib.mkOption {
-        type = lib.types.bool;
-        default = true;
-        description = "Whether to autostart the applet on login.";
-      };
-    };
-
     extraSettings = lib.mkOption {
       type = settingsFormat.type;
       default = { };
@@ -244,23 +224,7 @@ in
       };
 
       # Add package to system packages for CLI access
-      environment.systemPackages = [ cfg.package ]
-        ++ lib.optional (cfg.applet.enable && cfg.applet.package != null) cfg.applet.package;
-
-      # Applet autostart desktop entry
-      environment.etc = lib.mkIf (cfg.applet.enable && cfg.applet.autostart && cfg.applet.package != null) {
-        "xdg/autostart/ht32-panel-applet.desktop".text = ''
-          [Desktop Entry]
-          Type=Application
-          Name=HT32 Panel Applet
-          Comment=System tray applet for HT32 Panel control
-          Exec=${cfg.applet.package}/bin/ht32-panel-applet
-          Icon=display-brightness-symbolic
-          Categories=System;Monitor;
-          StartupNotify=false
-          X-GNOME-Autostart-enabled=true
-        '';
-      };
+      environment.systemPackages = [ cfg.package ];
     })
   ];
 

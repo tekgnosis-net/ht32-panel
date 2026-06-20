@@ -37,12 +37,11 @@ jobs:
           tar -xzf "$(ls $(readlink result-release)/*.tar.gz)" -C "${dir}"
 
           # Copy packaging files
-          cp packaging/nfpm.yaml packaging/nfpm-gui.yaml "${dir}/"
+          cp packaging/nfpm.yaml "${dir}/"
           cp packaging/ht32-panel.gpg packaging/ht32-panel.sources packaging/ht32-panel.repo "${dir}/"
           cp packaging/ht32-panel.service packaging/99-ht32-panel.rules "${dir}/"
           cp packaging/org.ht32panel.Daemon.conf packaging/postinstall.sh "${dir}/"
           cp config/default.toml "${dir}/config.toml"
-          cp packaging/org.ht32panel.Daemon.desktop "${dir}/"
 
           # Build daemon + CLI package
           cd "${dir}"
@@ -50,12 +49,6 @@ jobs:
             nfpm package -p deb -f nfpm.yaml
           ARCH="x86_64" VERSION="$VERSION" nix shell nixpkgs#nfpm -c \
             nfpm package -p rpm -f nfpm.yaml
-
-          # Build applet package
-          ARCH="amd64" VERSION="$VERSION" nix shell nixpkgs#nfpm -c \
-            nfpm package -p deb -f nfpm-gui.yaml
-          ARCH="x86_64" VERSION="$VERSION" nix shell nixpkgs#nfpm -c \
-            nfpm package -p rpm -f nfpm-gui.yaml
           cd ..
 
           # Collect all artifacts
@@ -116,10 +109,5 @@ jobs:
 
       - name: Publish ht32-panel-cli
         run: nix develop -c cargo publish -p ht32-panel-cli
-        env:
-          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
-
-      - name: Publish ht32-panel-applet
-        run: nix develop -c cargo publish -p ht32-panel-applet
         env:
           CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
