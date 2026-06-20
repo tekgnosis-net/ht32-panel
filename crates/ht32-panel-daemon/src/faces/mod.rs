@@ -254,7 +254,10 @@ pub fn draw_mini_analog_clock(
 ///
 /// The `index` parameter is the 0-based position in the slice returned by
 /// `mini_analog_clock_draws`; it is used to produce a stable static id string.
-pub fn mini_clock_draw_to_widget(draw: MiniClockDraw, index: usize) -> (&'static str, WidgetContent) {
+pub fn mini_clock_draw_to_widget(
+    draw: MiniClockDraw,
+    index: usize,
+) -> (&'static str, WidgetContent) {
     // The draw order from mini_analog_clock_draws is fixed:
     //   0 → Arc  (bezel)
     //   1 → Line (hour hand)
