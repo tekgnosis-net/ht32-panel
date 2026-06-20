@@ -1,5 +1,5 @@
 Types: deb
-URIs: https://ananthb.github.io/ht32-panel/deb/
+URIs: https://tekgnosis-net.github.io/ht32-panel/deb/
 Suites: stable
 Components: main
 Signed-By: /usr/share/keyrings/ht32-panel.gpg

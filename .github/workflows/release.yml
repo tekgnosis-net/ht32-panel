@@ -18,7 +18,7 @@ jobs:
 
       - uses: cachix/cachix-action@v15
         with:
-          name: ananthb
+          name: tekgnosis-net
           authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
 
       - uses: sigstore/cosign-installer@v3
@@ -72,42 +72,3 @@ jobs:
         with:
           files: dist/*
           generate_release_notes: true
-
-  publish:
-    runs-on: ubuntu-latest
-    needs: release
-    steps:
-      - uses: actions/checkout@v6
-
-      - uses: DeterminateSystems/nix-installer-action@main
-
-      - uses: cachix/cachix-action@v15
-        with:
-          name: ananthb
-          authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
-
-      - name: Publish ht32-panel-hw
-        run: nix develop -c cargo publish -p ht32-panel-hw
-        env:
-          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
-
-      - name: Wait for crates.io indexing
-        run: sleep 30
-
-      - name: Publish ht32-panel-client
-        run: nix develop -c cargo publish -p ht32-panel-client
-        env:
-          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
-
-      - name: Wait for crates.io indexing
-        run: sleep 30
-
-      - name: Publish ht32-panel-daemon
-        run: nix develop -c cargo publish -p ht32-panel-daemon
-        env:
-          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
-
-      - name: Publish ht32-panel-cli
-        run: nix develop -c cargo publish -p ht32-panel-cli
-        env:
-          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
