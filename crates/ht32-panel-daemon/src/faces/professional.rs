@@ -598,6 +598,7 @@ impl ProfessionalFace {
                         color_b: colors.bar_disk_write,
                         bg: colors.bar_bg,
                         wrap_around: false,
+                        count: 0,
                     },
                 });
                 y += GRAPH_HEIGHT as i32 + section_spacing;
@@ -690,6 +691,7 @@ impl ProfessionalFace {
                         color_b: colors.bar_net_tx,
                         bg: colors.bar_bg,
                         wrap_around: false,
+                        count: 0,
                     },
                 });
             }
@@ -1051,6 +1053,7 @@ impl ProfessionalFace {
                         color_b: colors.bar_disk_write,
                         bg: colors.bar_bg,
                         wrap_around: false,
+                        count: 0,
                     },
                 });
                 y += GRAPH_HEIGHT as i32 + 4;
@@ -1143,6 +1146,7 @@ impl ProfessionalFace {
                         color_b: colors.bar_net_tx,
                         bg: colors.bar_bg,
                         wrap_around: false,
+                        count: 0,
                     },
                 });
             }

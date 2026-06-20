@@ -69,9 +69,11 @@ pub enum WidgetContent {
         color_a: u32,
         color_b: u32,
         bg: u32,
-        /// Phase 2 flips this to true; false reproduces the legacy scrolling graph.
-        #[allow(dead_code)]
+        /// When true, routes to the oscilloscope wrap renderer; false uses the legacy scroller.
         wrap_around: bool,
+        /// Total samples ever pushed; passed to `draw_dual_graph_wrap` as the write-head index.
+        /// Unused on the legacy path (`wrap_around: false`); set to 0 until Task 4 wires it up.
+        count: u64,
     },
     Line {
         x1: i32,
@@ -175,14 +177,16 @@ pub fn render_layout(canvas: &mut Canvas, layout: &Layout) {
                 color_a,
                 color_b,
                 bg,
-                wrap_around: _,
+                wrap_around,
+                count,
             } => {
-                // Phase 1: always the legacy dual graph. Phase 2 adds the wrap-around path.
-                let a_deque: std::collections::VecDeque<f64> = a.iter().copied().collect();
-                let b_deque: std::collections::VecDeque<f64> = b.iter().copied().collect();
-                canvas.draw_dual_graph(
-                    *x, *y, *gw, *gh, &a_deque, &b_deque, *scale, *color_a, *color_b, *bg,
-                );
+                if *wrap_around {
+                    canvas.draw_dual_graph_wrap(
+                        *x, *y, *gw, *gh, a, b, *count, *scale, *color_a, *color_b, *bg,
+                    );
+                } else {
+                    canvas.draw_dual_graph(*x, *y, *gw, *gh, a, b, *scale, *color_a, *color_b, *bg);
+                }
             }
             WidgetContent::Line {
                 x1,
@@ -409,5 +413,117 @@ mod tests {
         };
         assert_eq!(at(2, 4), (255, 255, 255), "filled portion white");
         assert_eq!(at(38, 4), (0x20, 0x20, 0x20), "unfilled portion = bar bg");
+    }
+
+    /// Shared test data for the dual-sparkline dispatch tests.
+    fn dual_sparkline_data() -> (Vec<f64>, Vec<f64>) {
+        let a: Vec<f64> = (0..60).map(|i| (i % 10) as f64).collect();
+        let b: Vec<f64> = (0..60).map(|i| ((i + 3) % 10) as f64).collect();
+        (a, b)
+    }
+
+    /// `wrap_around: true` routes to `draw_dual_graph_wrap` — pixel output must equal a
+    /// direct call with the same arguments.
+    #[test]
+    fn dual_sparkline_wrap_true_routes_to_wrap_renderer() {
+        let (a, b) = dual_sparkline_data();
+        let count: u64 = 100;
+        let scale = 9.0_f64;
+        let color_a = 0xFF0000_u32;
+        let color_b = 0x00FF00_u32;
+        let bg = 0x000000_u32;
+        let w = 60_u32;
+        let h = 20_u32;
+
+        // Render via render_layout with wrap_around: true.
+        let mut via_layout = Canvas::new(w, h);
+        via_layout.set_background(bg);
+        via_layout.clear();
+        let mut layout = Layout::new();
+        layout.push(Widget {
+            id: "ds",
+            rect: Rect { x: 0, y: 0, w, h },
+            kind: ZoneKind::Dynamic,
+            cadence: Cadence::EveryFrame,
+            content: WidgetContent::DualSparkline {
+                x: 0,
+                y: 0,
+                w,
+                h,
+                a: a.clone(),
+                b: b.clone(),
+                scale,
+                color_a,
+                color_b,
+                bg,
+                wrap_around: true,
+                count,
+            },
+        });
+        render_layout(&mut via_layout, &layout);
+
+        // Render directly via draw_dual_graph_wrap with identical args.
+        let mut direct = Canvas::new(w, h);
+        direct.set_background(bg);
+        direct.clear();
+        direct.draw_dual_graph_wrap(0, 0, w, h, &a, &b, count, scale, color_a, color_b, bg);
+
+        assert_eq!(
+            via_layout.pixels(),
+            direct.pixels(),
+            "wrap_around: true must route to draw_dual_graph_wrap"
+        );
+    }
+
+    /// `wrap_around: false` routes to the legacy `draw_dual_graph` — pixel output must
+    /// equal a direct call with the same arguments.
+    #[test]
+    fn dual_sparkline_wrap_false_routes_to_legacy_renderer() {
+        let (a, b) = dual_sparkline_data();
+        let scale = 9.0_f64;
+        let color_a = 0xFF0000_u32;
+        let color_b = 0x00FF00_u32;
+        let bg = 0x000000_u32;
+        let w = 60_u32;
+        let h = 20_u32;
+
+        // Render via render_layout with wrap_around: false.
+        let mut via_layout = Canvas::new(w, h);
+        via_layout.set_background(bg);
+        via_layout.clear();
+        let mut layout = Layout::new();
+        layout.push(Widget {
+            id: "ds",
+            rect: Rect { x: 0, y: 0, w, h },
+            kind: ZoneKind::Dynamic,
+            cadence: Cadence::EveryFrame,
+            content: WidgetContent::DualSparkline {
+                x: 0,
+                y: 0,
+                w,
+                h,
+                a: a.clone(),
+                b: b.clone(),
+                scale,
+                color_a,
+                color_b,
+                bg,
+                wrap_around: false,
+                count: 0,
+            },
+        });
+        render_layout(&mut via_layout, &layout);
+
+        // Render directly via draw_dual_graph with identical args.
+        let mut direct = Canvas::new(w, h);
+        direct.set_background(bg);
+        direct.clear();
+        direct.draw_dual_graph(0, 0, w, h, &a, &b, scale, color_a, color_b, bg);
+
+        assert_eq!(
+            via_layout.pixels(),
+            direct.pixels(),
+            "wrap_around: false must route to legacy draw_dual_graph"
+        );
     }
 }

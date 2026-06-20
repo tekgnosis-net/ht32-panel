@@ -2,7 +2,6 @@
 
 use anyhow::Result;
 use ht32_panel_hw::lcd::framebuffer::{rgb888_to_rgb565, Framebuffer};
-use std::collections::VecDeque;
 use tiny_skia::{Color, Paint, PathBuilder, Pixmap, Rect, Stroke, Transform};
 
 use super::text::TextRenderer;
@@ -397,7 +396,7 @@ impl Canvas {
         y: i32,
         width: u32,
         height: u32,
-        data: &VecDeque<f64>,
+        data: &[f64],
         max_value: f64,
         line_color: u32,
         bg_color: u32,
@@ -501,8 +500,8 @@ impl Canvas {
         y: i32,
         width: u32,
         height: u32,
-        data1: &VecDeque<f64>,
-        data2: &VecDeque<f64>,
+        data1: &[f64],
+        data2: &[f64],
         max_value: f64,
         color1: u32,
         color2: u32,
