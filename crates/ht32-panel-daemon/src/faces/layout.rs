@@ -240,6 +240,13 @@ mod tests {
             (px[i], px[i + 1], px[i + 2])
         };
         assert_eq!(at(30, 30), (255, 0, 0), "circle center red");
+        // Positive line check: a pixel on the line but left of the circle (which
+        // overdraws the shared center at x=30) proves draw_line actually painted.
+        assert_eq!(
+            at(10, 30),
+            (255, 255, 255),
+            "line pixel left of circle is white"
+        );
         assert_eq!(at(30, 5), (0, 0, 0), "above the line stays bg");
     }
 
