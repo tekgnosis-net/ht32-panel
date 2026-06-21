@@ -6,9 +6,10 @@
 //! consumed by the per-zone scheduler and partial-update transport in later phases.
 
 use crate::rendering::Canvas;
+use serde::{Deserialize, Serialize};
 
 /// Bounding box of a widget, in canvas coordinates.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Rect {
     pub x: i32,
     pub y: i32,

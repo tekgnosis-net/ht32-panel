@@ -10,6 +10,7 @@ mod clock;
 mod digits;
 pub mod layout;
 mod professional;
+pub mod template;
 
 pub use arcs::ArcsFace;
 pub use ascii::AsciiFace;
