@@ -70,6 +70,88 @@ pub fn tile_rect(x: u16, y: u16, w: u16, h: u16, pixels: &[u16]) -> Vec<SubTile>
 pub struct LcdDevice {
     device: Mutex<HidDevice>,
     current_orientation: Mutex<Orientation>,
+    /// The previously transmitted (post-rotation, device-space) framebuffer bytes,
+    /// used by `redraw_diff` to compute the tile-diff. `None` until the first send.
+    prev_transmitted: Mutex<Option<Vec<u16>>>,
+}
+
+/// Tile width for `redraw_diff`'s diff grid (device space). 80×16 = 1280 px ≤ 2048,
+/// and both dims ≤ 255, so each tile fits a single 0xA2 packet.
+const TILE_W: u16 = 80;
+/// Tile height for `redraw_diff`'s diff grid (device space).
+const TILE_H: u16 = 16;
+
+/// Pure transform mirroring what `redraw`/`redraw_diff` place on the wire: a copy of
+/// `data`, rotated 180° iff `rotate` is set. Kept free-standing so it can be unit-tested
+/// without a device.
+fn transmit_transform(data: &[u16], width: u16, height: u16, rotate: bool) -> Vec<u16> {
+    let mut out = data.to_vec();
+    if rotate {
+        Orientation::rotate_180(&mut out, width, height);
+    }
+    out
+}
+
+/// Walks a `tile_w×tile_h` grid over the `fb_w×fb_h` image (row-major, stride `fb_w`),
+/// clipping the last row/column to the frame edge. Emits `(x, y, w, h)` for every tile
+/// whose `prev` and `new` pixel sub-rects differ. Pure: this is the diff core.
+pub fn diff_tiles(
+    prev: &[u16],
+    new: &[u16],
+    fb_w: u16,
+    fb_h: u16,
+    tile_w: u16,
+    tile_h: u16,
+) -> Vec<(u16, u16, u16, u16)> {
+    let mut changed = Vec::new();
+    let stride = fb_w as usize;
+
+    let mut ty = 0u16;
+    while ty < fb_h {
+        let th = tile_h.min(fb_h - ty);
+        let mut tx = 0u16;
+        while tx < fb_w {
+            let tw = tile_w.min(fb_w - tx);
+
+            let mut differs = false;
+            'rows: for row in 0..th as usize {
+                let row_start = (ty as usize + row) * stride + tx as usize;
+                let prev_row = &prev[row_start..row_start + tw as usize];
+                let new_row = &new[row_start..row_start + tw as usize];
+                if prev_row != new_row {
+                    differs = true;
+                    break 'rows;
+                }
+            }
+
+            if differs {
+                changed.push((tx, ty, tw, th));
+            }
+
+            tx += tile_w;
+        }
+        ty += tile_h;
+    }
+
+    changed
+}
+
+/// Decides whether `redraw_diff` must take the full-redraw path: when forced, when
+/// there is no previous frame, or when the previous frame's length differs (an
+/// orientation/size change invalidates the tile diff). Pure, so the branch is testable
+/// without a device.
+fn needs_full_redraw(force_full: bool, prev_len: Option<usize>, transmitted_len: usize) -> bool {
+    force_full || prev_len.is_none_or(|len| len != transmitted_len)
+}
+
+/// Extracts a tile's row-major pixels from a `stride`-wide source buffer.
+fn extract_tile(src: &[u16], stride: usize, x: u16, y: u16, w: u16, h: u16) -> Vec<u16> {
+    let mut tile = Vec::with_capacity(w as usize * h as usize);
+    for row in 0..h as usize {
+        let row_start = (y as usize + row) * stride + x as usize;
+        tile.extend_from_slice(&src[row_start..row_start + w as usize]);
+    }
+    tile
 }
 
 /// The HID interface number used for LCD data transfer.
@@ -134,6 +216,7 @@ impl LcdDevice {
         Ok(Self {
             device: Mutex::new(device),
             current_orientation: Mutex::new(Orientation::default()),
+            prev_transmitted: Mutex::new(None),
         })
     }
 
@@ -156,6 +239,7 @@ impl LcdDevice {
         Ok(Self {
             device: Mutex::new(device),
             current_orientation: Mutex::new(Orientation::default()),
+            prev_transmitted: Mutex::new(None),
         })
     }
 
@@ -192,21 +276,27 @@ impl LcdDevice {
         Ok(())
     }
 
-    /// Performs a full screen redraw.
-    pub fn redraw(&self, framebuffer: &Framebuffer) -> Result<()> {
-        let orientation = *self.current_orientation.lock().unwrap();
-        let mut data = framebuffer.data().to_vec();
+    /// Computes the exact bytes `redraw` places on the wire: a copy of the
+    /// framebuffer data with the same 180° rotation `redraw` applies (iff the current
+    /// orientation needs it). Shared by `redraw` and `redraw_diff` so they cannot drift.
+    fn transmitted_bytes(&self, framebuffer: &Framebuffer) -> Vec<u16> {
+        let rotate = self.current_orientation.lock().unwrap().needs_rotation();
+        transmit_transform(
+            framebuffer.data(),
+            framebuffer.width(),
+            framebuffer.height(),
+            rotate,
+        )
+    }
 
-        // Apply software rotation if needed
-        if orientation.needs_rotation() {
-            Orientation::rotate_180(&mut data, framebuffer.width(), framebuffer.height());
-        }
-
+    /// Sends the full frame as the 27 `0xA3` chunks. `transmitted` is already in
+    /// device space (post-rotation). Shared by `redraw` and `redraw_diff`'s full path.
+    fn send_full(&self, transmitted: &[u16]) -> Result<()> {
         let device = self.device.lock().unwrap();
 
         for chunk_idx in 0..CHUNK_COUNT {
             let offset = chunk_idx * (DATA_SIZE / 2);
-            let packet = build_redraw_chunk(chunk_idx, &data, offset);
+            let packet = build_redraw_chunk(chunk_idx, transmitted, offset);
 
             // Log first chunk header for debugging
             if chunk_idx == 0 {
@@ -222,6 +312,54 @@ impl LcdDevice {
 
         debug!("Full redraw completed ({} chunks)", CHUNK_COUNT);
         Ok(())
+    }
+
+    /// Performs a full screen redraw.
+    pub fn redraw(&self, framebuffer: &Framebuffer) -> Result<()> {
+        let transmitted = self.transmitted_bytes(framebuffer);
+        self.send_full(&transmitted)
+    }
+
+    /// Transmits only the pixels that changed versus the previously transmitted frame.
+    ///
+    /// Diffs the new frame (in device space, post-rotation) against the stored previous
+    /// frame in a fixed tile grid and sends each changed tile via the no-rotation 0xA2
+    /// partial write. Falls back to a full redraw when `force_full` is set, on the first
+    /// frame, or when the transmitted length changes (orientation/size change).
+    ///
+    /// Returns the number of changed tiles sent, or `usize::MAX` as a sentinel when the
+    /// full-redraw path was taken.
+    pub fn redraw_diff(&self, framebuffer: &Framebuffer, force_full: bool) -> Result<usize> {
+        let transmitted = self.transmitted_bytes(framebuffer);
+        let fb_w = framebuffer.width();
+        let fb_h = framebuffer.height();
+
+        let mut prev = self.prev_transmitted.lock().unwrap();
+
+        let full = needs_full_redraw(
+            force_full,
+            prev.as_ref().map(|p| p.len()),
+            transmitted.len(),
+        );
+
+        if full {
+            self.send_full(&transmitted)?;
+            *prev = Some(transmitted);
+            return Ok(usize::MAX);
+        }
+
+        let prev_bytes = prev.as_ref().expect("prev is Some on the diff path");
+        let tiles = diff_tiles(prev_bytes, &transmitted, fb_w, fb_h, TILE_W, TILE_H);
+        let stride = fb_w as usize;
+
+        for &(tx, ty, tw, th) in &tiles {
+            let tile_pixels = extract_tile(&transmitted, stride, tx, ty, tw, th);
+            self.refresh_raw(tx, ty, tw, th, &tile_pixels)?;
+        }
+
+        debug!("redraw_diff sent {} changed tiles", tiles.len());
+        *prev = Some(transmitted);
+        Ok(tiles.len())
     }
 
     /// Performs a partial refresh of a rectangular region.
@@ -423,5 +561,215 @@ mod tests {
         assert_eq!(tiles[0].h, 5);
         assert_eq!(tiles[0].pixels, pixels);
         check_invariants(&tiles, w, h);
+    }
+
+    // --- transmit_transform (the redraw transmitted-bytes core) ---
+
+    #[test]
+    fn transmit_transform_landscape_is_identity() {
+        let data: Vec<u16> = (0..(320u32 * 170) as u16).collect();
+        let out = transmit_transform(&data, 320, 170, false);
+        assert_eq!(out, data, "no-rotation output must equal framebuffer data");
+    }
+
+    #[test]
+    fn transmit_transform_upside_down_is_rotate_180() {
+        let data: Vec<u16> = (0..(320u32 * 170) as u16).collect();
+        let out = transmit_transform(&data, 320, 170, true);
+
+        // Manual expected: rotate_180 == full reverse for a row-major buffer.
+        let mut expected = data.clone();
+        expected.reverse();
+        assert_eq!(out, expected, "rotation output must equal rotate_180(data)");
+        assert_ne!(out, data, "rotation must actually change the data");
+    }
+
+    // --- diff_tiles (the main correctness target) ---
+
+    const FB_W: u16 = 320;
+    const FB_H: u16 = 170;
+
+    fn blank() -> Vec<u16> {
+        vec![0u16; FB_W as usize * FB_H as usize]
+    }
+
+    fn idx(x: u16, y: u16) -> usize {
+        y as usize * FB_W as usize + x as usize
+    }
+
+    #[test]
+    fn diff_tiles_identical_is_empty() {
+        // THE "zero send on unchanged" property.
+        let prev = blank();
+        let new = prev.clone();
+        let tiles = diff_tiles(&prev, &new, FB_W, FB_H, TILE_W, TILE_H);
+        assert!(tiles.is_empty(), "identical frames must send zero tiles");
+    }
+
+    #[test]
+    fn diff_tiles_single_pixel_one_tile() {
+        let prev = blank();
+        let mut new = blank();
+        new[idx(100, 50)] = 0xBEEF;
+
+        let tiles = diff_tiles(&prev, &new, FB_W, FB_H, TILE_W, TILE_H);
+        assert_eq!(tiles.len(), 1, "one pixel must dirty exactly one tile");
+
+        // (100,50): tile col = 100/80 = 1 → x=80,w=80; tile row = 50/16 = 3 → y=48,h=16.
+        assert_eq!(tiles[0], (80, 48, 80, 16));
+    }
+
+    #[test]
+    fn diff_tiles_block_spanning_boundary() {
+        // A 10×10 block at (75,45) straddles x boundary 80 (cols 0,1) and y boundary 48
+        // (rows 2,3) → exactly 4 overlapping tiles.
+        let prev = blank();
+        let mut new = blank();
+        for dy in 0..10u16 {
+            for dx in 0..10u16 {
+                new[idx(75 + dx, 45 + dy)] = 0xF00D;
+            }
+        }
+
+        let mut tiles = diff_tiles(&prev, &new, FB_W, FB_H, TILE_W, TILE_H);
+        tiles.sort();
+        assert_eq!(
+            tiles,
+            vec![
+                (0, 32, 80, 16),
+                (0, 48, 80, 16),
+                (80, 32, 80, 16),
+                (80, 48, 80, 16)
+            ],
+            "10x10 block across both boundaries → exactly 4 tiles"
+        );
+    }
+
+    #[test]
+    fn diff_tiles_clipped_last_row() {
+        // Change at y=168 with fb_h=170, tile_h=16: row index 168/16 = 10 → y=160, but the
+        // grid clips to the frame edge so h = 170 - 160 = 10, not 16.
+        let prev = blank();
+        let mut new = blank();
+        new[idx(8, 168)] = 0x1234;
+
+        let tiles = diff_tiles(&prev, &new, FB_W, FB_H, TILE_W, TILE_H);
+        assert_eq!(tiles.len(), 1);
+        assert_eq!(
+            tiles[0],
+            (0, 160, 80, 10),
+            "last row tile must clip h to 10"
+        );
+    }
+
+    #[test]
+    fn diff_tiles_full_change_tiles_whole_frame() {
+        // prev zeros, new all-ones → every grid tile changes, and the tiles must tile the
+        // whole 320×170 image with no gaps and no overlaps.
+        let prev = blank();
+        let new = vec![1u16; FB_W as usize * FB_H as usize];
+
+        let tiles = diff_tiles(&prev, &new, FB_W, FB_H, TILE_W, TILE_H);
+
+        // 320/80 = 4 cols, ceil(170/16) = 11 rows → 44 tiles.
+        assert_eq!(tiles.len(), 44, "full change must emit every grid tile");
+
+        // Total area covers exactly the frame.
+        let total: usize = tiles
+            .iter()
+            .map(|&(_, _, w, h)| w as usize * h as usize)
+            .sum();
+        assert_eq!(
+            total,
+            FB_W as usize * FB_H as usize,
+            "tiles must cover the whole frame"
+        );
+
+        // Reconstruct a coverage map: each pixel hit exactly once (no gaps, no overlap).
+        let mut covered = vec![0u8; FB_W as usize * FB_H as usize];
+        for &(x, y, w, h) in &tiles {
+            assert!(w <= 255 && h <= 255, "tile dims must fit u8");
+            assert!(
+                w as usize * h as usize <= 2048,
+                "tile must fit one 0xA2 packet"
+            );
+            for dy in 0..h {
+                for dx in 0..w {
+                    covered[idx(x + dx, y + dy)] += 1;
+                }
+            }
+        }
+        assert!(
+            covered.iter().all(|&c| c == 1),
+            "every pixel covered exactly once"
+        );
+    }
+
+    #[test]
+    fn diff_tiles_change_outside_only_one_tile() {
+        // Sanity: two distant single-pixel changes dirty exactly two distinct tiles.
+        let prev = blank();
+        let mut new = blank();
+        new[idx(0, 0)] = 1; // tile (0,0)
+        new[idx(319, 169)] = 1; // last tile
+
+        let mut tiles = diff_tiles(&prev, &new, FB_W, FB_H, TILE_W, TILE_H);
+        tiles.sort();
+        assert_eq!(tiles.len(), 2);
+        assert_eq!(tiles[0], (0, 0, 80, 16));
+        assert_eq!(tiles[1], (240, 160, 80, 10));
+    }
+
+    // --- extract_tile ---
+
+    #[test]
+    fn extract_tile_pulls_correct_subrect() {
+        let mut new = blank();
+        // Fill the tile at (80,48) 80×16 with a known pattern keyed on position.
+        for dy in 0..16u16 {
+            for dx in 0..80u16 {
+                new[idx(80 + dx, 48 + dy)] = dy * 80 + dx;
+            }
+        }
+        let tile = extract_tile(&new, FB_W as usize, 80, 48, 80, 16);
+        assert_eq!(tile.len(), 80 * 16);
+        for (i, &px) in tile.iter().enumerate() {
+            assert_eq!(px, i as u16, "row-major extraction mismatch at {}", i);
+        }
+    }
+
+    // --- needs_full_redraw (the redraw_diff full-path decision) ---
+
+    #[test]
+    fn needs_full_redraw_force_flag() {
+        assert!(
+            needs_full_redraw(true, Some(54400), 54400),
+            "force_full forces full"
+        );
+    }
+
+    #[test]
+    fn needs_full_redraw_no_prev() {
+        assert!(
+            needs_full_redraw(false, None, 54400),
+            "first frame forces full"
+        );
+    }
+
+    #[test]
+    fn needs_full_redraw_length_mismatch() {
+        // Orientation/size change: prev length differs → full redraw, prev reset.
+        assert!(
+            needs_full_redraw(false, Some(54400), 100),
+            "length mismatch forces full"
+        );
+    }
+
+    #[test]
+    fn needs_full_redraw_steady_state_takes_diff_path() {
+        assert!(
+            !needs_full_redraw(false, Some(54400), 54400),
+            "matching length without force takes the tile-diff path"
+        );
     }
 }
