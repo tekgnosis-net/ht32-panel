@@ -1,0 +1,99 @@
+{
+  "name": "example",
+  "orientation": "landscape",
+  "widgets": [
+    {
+      "id": "hostname",
+      "rect": { "x": 4, "y": 4, "w": 160, "h": 16 },
+      "kind": "text",
+      "value": { "src": "hostname" },
+      "size": 12.0,
+      "color": "primary",
+      "align": "left"
+    },
+    {
+      "id": "clock",
+      "rect": { "x": 220, "y": 2, "w": 96, "h": 20 },
+      "kind": "clock",
+      "mode": "digital",
+      "color": "text"
+    },
+    {
+      "id": "cpu_label",
+      "rect": { "x": 4, "y": 28, "w": 32, "h": 12 },
+      "kind": "text",
+      "value": { "src": "literal", "fmt": "CPU" },
+      "size": 10.0,
+      "color": "text",
+      "align": "left"
+    },
+    {
+      "id": "cpu_bar",
+      "rect": { "x": 40, "y": 28, "w": 272, "h": 12 },
+      "kind": "bar",
+      "value": "cpu_percent",
+      "fill": "primary",
+      "bg": 2105376
+    },
+    {
+      "id": "ram_label",
+      "rect": { "x": 4, "y": 48, "w": 32, "h": 12 },
+      "kind": "text",
+      "value": { "src": "literal", "fmt": "RAM" },
+      "size": 10.0,
+      "color": "text",
+      "align": "left"
+    },
+    {
+      "id": "ram_bar",
+      "rect": { "x": 40, "y": 48, "w": 272, "h": 12 },
+      "kind": "bar",
+      "value": "ram_percent",
+      "fill": "secondary",
+      "bg": 2105376
+    },
+    {
+      "id": "disk_spark",
+      "rect": { "x": 4, "y": 70, "w": 150, "h": 50 },
+      "kind": "sparkline",
+      "a": "disk_history",
+      "b": null,
+      "wrap_around": true,
+      "color_a": "primary",
+      "color_b": "secondary",
+      "bg": 0,
+      "scale": "auto"
+    },
+    {
+      "id": "cpu_temp_gauge",
+      "rect": { "x": 165, "y": 65, "w": 60, "h": 60 },
+      "kind": "gauge",
+      "value": "cpu_temp",
+      "min": 0.0,
+      "max": 100.0,
+      "color": "primary",
+      "track": "background"
+    },
+    {
+      "id": "cpu_percent_label",
+      "rect": { "x": 240, "y": 130, "w": 76, "h": 14 },
+      "kind": "text",
+      "value": { "src": "number", "fmt": { "source": "cpu_percent", "style": "percent" } },
+      "size": 11.0,
+      "color": "primary",
+      "align": "right"
+    },
+    {
+      "id": "net_spark",
+      "rect": { "x": 4, "y": 130, "w": 228, "h": 36 },
+      "kind": "sparkline",
+      "a": "net_rx_history",
+      "b": "net_tx_history",
+      "wrap_around": true,
+      "color_a": "primary",
+      "color_b": "secondary",
+      "bg": 0,
+      "scale": "auto"
+    }
+  ]
+}
