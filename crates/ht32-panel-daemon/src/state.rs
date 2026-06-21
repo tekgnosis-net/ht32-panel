@@ -248,6 +248,10 @@ pub struct AppState {
 
     /// Timestamp of last save
     last_save: Mutex<std::time::Instant>,
+
+    /// Forces a full redraw on the next frame (structural changes: face/theme/orientation/reconnect).
+    /// Read-and-cleared each frame; initialized true so the first frame is always a full redraw.
+    needs_full_redraw: AtomicBool,
 }
 
 impl AppState {
@@ -383,6 +387,7 @@ impl AppState {
             sensors: Mutex::new(sensors),
             save_pending: AtomicBool::new(false),
             last_save: Mutex::new(now),
+            needs_full_redraw: AtomicBool::new(true),
         };
 
         // Save initial state so the file always exists
@@ -504,6 +509,9 @@ impl AppState {
                 }
                 info!("LCD device reconnected successfully");
                 *lcd = Some(device);
+                // New handle ⟹ device's prev is None; force a full redraw so the first
+                // post-reconnect frame is a clean 27-chunk send.
+                self.needs_full_redraw.store(true, Ordering::Relaxed);
                 true
             }
             Err(_) => false,
@@ -534,6 +542,9 @@ impl AppState {
             render.framebuffer.clear(0);
             render.cached_png = None;
         }
+        // Orientation change repaints nearly all tiles; a 180°-flip keeps the same byte
+        // length so redraw_diff's size-change check won't catch it — force it explicitly.
+        self.needs_full_redraw.store(true, Ordering::Relaxed);
 
         self.save_display_settings();
         info!("Orientation set to: {}", orientation);
@@ -696,22 +707,28 @@ impl AppState {
             let mut render = self.render.write().unwrap();
             Self::render_to_framebuffer(&mut render, orientation)?;
 
+            // Determine whether a full redraw is required for this frame.
+            // Read-and-clear so subsequent frames use the tile-diff path.
+            let force_full = self.needs_full_redraw.swap(false, Ordering::Relaxed);
+
             // Send to LCD; record the outcome for health tracking.
             let send_result = {
                 let lcd = self.lcd.lock().unwrap();
                 lcd.as_ref()
-                    .map(|device| device.redraw(&render.framebuffer))
+                    .map(|device| device.redraw_diff(&render.framebuffer, force_full))
             };
             match send_result {
-                Some(Ok(())) => self.on_write_success(),
+                Some(Ok(_tiles)) => self.on_write_success(),
                 Some(Err(e)) => self.on_write_failure("Render", &e),
                 None => {
                     // Disconnected: attempt a (rate-limited) reopen, then redraw.
                     if self.try_lcd_reconnect() {
                         let lcd = self.lcd.lock().unwrap();
                         if let Some(ref device) = *lcd {
-                            match device.redraw(&render.framebuffer) {
-                                Ok(()) => {
+                            // New device handle ⟹ prev is None inside redraw_diff, but pass
+                            // force_full=true explicitly so the intent is clear.
+                            match device.redraw_diff(&render.framebuffer, true) {
+                                Ok(_tiles) => {
                                     drop(lcd);
                                     self.on_write_success();
                                 }
@@ -859,6 +876,10 @@ impl AppState {
             display.face = new_face;
             display.needs_redraw = true;
             drop(display);
+            // Face change replaces most of the screen content; force a full redraw so the
+            // new frame is sent as a single coherent 27-chunk write instead of a flood of
+            // tile-diffs from a stale prev buffer.
+            self.needs_full_redraw.store(true, Ordering::Relaxed);
             self.save_display_settings();
             info!("Display face changed to: {}", name);
             Ok(())
@@ -937,6 +958,9 @@ impl AppState {
             render.canvas.set_background(theme.background);
             render.cached_png = None;
         }
+        // Theme change affects background and palette across the whole screen; a full
+        // redraw is cleaner than a flood of tile-diffs from the previous theme's colours.
+        self.needs_full_redraw.store(true, Ordering::Relaxed);
 
         self.save_display_settings();
         info!("Theme set to: {}", name);
