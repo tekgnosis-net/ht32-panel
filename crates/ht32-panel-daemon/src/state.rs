@@ -464,6 +464,59 @@ impl AppState {
         Ok(app_state)
     }
 
+    /// Test/headless construction; opens no hardware.
+    ///
+    /// Builds a minimal `AppState` suitable for unit tests: no LCD device,
+    /// face = "professional", 320×170 canvas. Only `state_dir` and `face_name`
+    /// (and the template CRUD methods) are guaranteed to work correctly.
+    #[cfg(test)]
+    pub fn for_tests(state_dir: &Path) -> Self {
+        use std::sync::atomic::AtomicBool;
+        let state_dir = state_dir.to_path_buf();
+        let face = faces::create_face("professional").unwrap();
+        let canvas = Canvas::new(320, 170);
+        let framebuffer = Framebuffer::new();
+        let complications = EnabledComplications::new();
+        let now = std::time::Instant::now();
+        let config = Config::default();
+        let lcd_health = LcdHealth::new(
+            config.lcd_failure_threshold,
+            std::time::Duration::from_millis(config.lcd_exit_after_ms),
+            std::time::Duration::from_millis(config.lcd_error_log_interval_ms),
+        );
+        Self {
+            led_device_path: config.devices.led.clone(),
+            config,
+            state_dir,
+            lcd: Mutex::new(None),
+            last_lcd_reconnect: Mutex::new(now),
+            lcd_health: Mutex::new(lcd_health),
+            display: RwLock::new(DisplayState {
+                orientation: Orientation::default(),
+                face,
+                theme_name: "default".to_string(),
+                refresh_interval: 2500,
+                complications,
+                needs_redraw: false,
+            }),
+            led: RwLock::new(LedState {
+                theme: 2,
+                intensity: 3,
+                speed: 3,
+                needs_update: false,
+            }),
+            render: RwLock::new(RenderState {
+                canvas,
+                framebuffer,
+                cached_png: None,
+            }),
+            sensors: Mutex::new(Sensors::new_auto()),
+            save_pending: AtomicBool::new(false),
+            last_save: Mutex::new(now),
+            needs_full_redraw: AtomicBool::new(false),
+        }
+    }
+
     /// Loads display settings from state directory.
     fn load_display_settings(state_dir: &Path) -> DisplaySettings {
         let settings_file = state_dir.join("display.toml");
