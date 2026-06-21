@@ -10,6 +10,7 @@
 //! first-class, selectable faces.
 
 pub mod face;
+pub mod preview;
 pub mod resolve;
 pub mod spec;
 
