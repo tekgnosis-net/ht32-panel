@@ -27,7 +27,7 @@ async fn list(State(st): State<WebState>) -> Json<Vec<String>> {
 async fn create(State(st): State<WebState>, Json(spec): Json<TemplateSpec>) -> Response {
     match st.app.save_template(&spec) {
         Ok(()) => {
-            let _ = st.signal_tx.send(DaemonSignals::DisplaySettingsChanged);
+            let _ = st.signal_tx.send(DaemonSignals::TemplatesChanged);
             Json(serde_json::json!({ "name": spec.name })).into_response()
         }
         Err(e) => bad_request(e),
@@ -55,7 +55,7 @@ async fn update(
     spec.name = name; // the URL is authoritative for the file name
     match st.app.save_template(&spec) {
         Ok(()) => {
-            let _ = st.signal_tx.send(DaemonSignals::DisplaySettingsChanged);
+            let _ = st.signal_tx.send(DaemonSignals::TemplatesChanged);
             Json(serde_json::json!({"ok": true})).into_response()
         }
         Err(e) => bad_request(e),
@@ -66,7 +66,7 @@ async fn update(
 async fn delete(State(st): State<WebState>, Path(name): Path<String>) -> Response {
     match st.app.delete_template(&name) {
         Ok(()) => {
-            let _ = st.signal_tx.send(DaemonSignals::DisplaySettingsChanged);
+            let _ = st.signal_tx.send(DaemonSignals::TemplatesChanged);
             StatusCode::NO_CONTENT.into_response()
         }
         Err(e) => bad_request(e),
@@ -86,7 +86,7 @@ async fn clone(
 ) -> Response {
     match st.app.clone_template(&name, &b.new_name) {
         Ok(()) => {
-            let _ = st.signal_tx.send(DaemonSignals::DisplaySettingsChanged);
+            let _ = st.signal_tx.send(DaemonSignals::TemplatesChanged);
             Json(serde_json::json!({"name": b.new_name})).into_response()
         }
         Err(e) => bad_request(e),

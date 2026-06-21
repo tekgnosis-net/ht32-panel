@@ -24,6 +24,8 @@ pub enum DaemonSignals {
     DisplaySettingsChanged,
     /// Complication option changed.
     ComplicationOptionChanged,
+    /// A template was created, updated, deleted, or cloned.
+    TemplatesChanged,
 }
 
 /// D-Bus interface implementation for the HT32 Panel Daemon.
@@ -442,6 +444,52 @@ impl Daemon1Interface {
         );
         Ok(())
     }
+
+    /// Lists saved template names.
+    fn list_templates(&self) -> Vec<String> {
+        self.state.template_names()
+    }
+
+    /// Returns a template as a JSON string, or an error if missing.
+    fn get_template(&self, name: &str) -> zbus::fdo::Result<String> {
+        let spec = self
+            .state
+            .load_template_spec(name)
+            .ok_or_else(|| zbus::fdo::Error::InvalidArgs(format!("template '{name}' not found")))?;
+        serde_json::to_string(&spec).map_err(|e| zbus::fdo::Error::Failed(e.to_string()))
+    }
+
+    /// Saves a template from a JSON string.
+    fn save_template(&self, json: &str) -> zbus::fdo::Result<()> {
+        let spec: crate::faces::template::spec::TemplateSpec =
+            serde_json::from_str(json).map_err(|e| zbus::fdo::Error::InvalidArgs(e.to_string()))?;
+        self.state
+            .save_template(&spec)
+            .map_err(|e| zbus::fdo::Error::InvalidArgs(e.to_string()))?;
+        let _ = self.signal_tx.send(DaemonSignals::TemplatesChanged);
+        debug!("D-Bus: SaveTemplate({})", spec.name);
+        Ok(())
+    }
+
+    /// Deletes a template (refused if active).
+    fn delete_template(&self, name: &str) -> zbus::fdo::Result<()> {
+        self.state
+            .delete_template(name)
+            .map_err(|e| zbus::fdo::Error::InvalidArgs(e.to_string()))?;
+        let _ = self.signal_tx.send(DaemonSignals::TemplatesChanged);
+        debug!("D-Bus: DeleteTemplate({})", name);
+        Ok(())
+    }
+
+    /// Duplicates `src` under `dst`.
+    fn clone_template(&self, src: &str, dst: &str) -> zbus::fdo::Result<()> {
+        self.state
+            .clone_template(src, dst)
+            .map_err(|e| zbus::fdo::Error::InvalidArgs(e.to_string()))?;
+        let _ = self.signal_tx.send(DaemonSignals::TemplatesChanged);
+        debug!("D-Bus: CloneTemplate({} -> {})", src, dst);
+        Ok(())
+    }
 }
 
 /// Connects to the appropriate D-Bus bus based on configuration.
@@ -509,4 +557,15 @@ pub async fn run_dbus_server(
         bus_name
     );
     Ok(connection)
+}
+
+#[cfg(test)]
+mod template_dbus_tests {
+    use crate::faces::template::spec::TemplateSpec;
+    #[test]
+    fn save_template_json_parses() {
+        let json = r#"{"name":"viadbus","widgets":[]}"#;
+        let spec: TemplateSpec = serde_json::from_str(json).unwrap();
+        assert_eq!(spec.name, "viadbus");
+    }
 }

@@ -190,6 +190,7 @@ async fn events_stream(
                     DaemonSignals::LedChanged => "led",
                     DaemonSignals::DisplaySettingsChanged => "display",
                     DaemonSignals::ComplicationOptionChanged => "complication",
+                    DaemonSignals::TemplatesChanged => "templates",
                 };
                 Some(Ok(Event::default().event(event_type).data("reload")))
             }
