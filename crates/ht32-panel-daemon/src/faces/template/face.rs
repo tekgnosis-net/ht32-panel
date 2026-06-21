@@ -574,4 +574,75 @@ mod tests {
         assert!(landscape_meta.len() > 0, "landscape PNG must not be empty");
         assert!(portrait_meta.len() > 0, "portrait PNG must not be empty");
     }
+
+    /// Renders `templates/example-portrait.json` (designed for the 170×320
+    /// portrait canvas pve3 actually runs) to a PNG for visual inspection, and
+    /// proves the JSON matches the serde wire format.
+    ///
+    /// Output: `/tmp/ws5_portrait_real.png` (170×320)
+    ///
+    /// Every widget is sized to fit the 170-wide canvas, so NO clip filter is
+    /// needed. Running in a debug build, the canvas `debug_assert!`s act as an
+    /// automatic fit-check: an overflowing widget panics this test rather than
+    /// silently clipping on hardware. This is the artifact deployed to pve3.
+    #[allow(clippy::field_reassign_with_default)]
+    #[test]
+    fn render_example_portrait_png() {
+        use crate::faces::layout::render_layout;
+
+        let json = include_str!("../../../../../templates/example-portrait.json");
+        let spec: super::super::spec::TemplateSpec =
+            serde_json::from_str(json).expect("example-portrait.json must parse");
+
+        // The wire format must survive serialise → parse.
+        let re = serde_json::to_string_pretty(&spec).expect("serialise");
+        let back: super::super::spec::TemplateSpec =
+            serde_json::from_str(&re).expect("round-trip parse");
+        assert_eq!(spec, back, "portrait spec must survive a serde round-trip");
+
+        let theme = Theme::from_preset("tokyonight");
+        let comps = EnabledComplications::new();
+
+        let mut data = SystemData::default();
+        data.hostname = "pve3".into();
+        data.cpu_percent = 65.0;
+        data.ram_percent = 80.0;
+        data.cpu_temp = Some(72.0);
+        data.hour = 14;
+        data.minute = 30;
+        data.day = 21;
+        data.month = 6;
+        data.year = 2026;
+        data.disk_sample_count = 60;
+        data.net_sample_count = 60;
+        for i in 0..60u64 {
+            let v = (i as f64) * 100_000.0;
+            data.disk_history.push_back(v);
+            data.net_rx_history.push_back(v);
+            data.net_tx_history.push_back(v / 4.0);
+        }
+
+        let (w, h) = (170u32, 320u32);
+        let face = TemplateFace::new(spec);
+        let canvas_ref = Canvas::new(w, h);
+        let layout = face.layout(&canvas_ref, &data, &theme, &comps);
+        assert!(
+            !layout.widgets.is_empty(),
+            "portrait layout must have widgets"
+        );
+
+        let mut canvas = Canvas::new(w, h);
+        canvas.set_background(theme.background);
+        canvas.clear();
+        render_layout(&mut canvas, &layout);
+
+        let raw: Vec<u8> = canvas.pixels().to_vec();
+        image::RgbaImage::from_raw(w, h, raw)
+            .expect("from_raw portrait")
+            .save("/tmp/ws5_portrait_real.png")
+            .expect("save portrait PNG");
+
+        let meta = std::fs::metadata("/tmp/ws5_portrait_real.png").expect("PNG exists");
+        assert!(meta.len() > 0, "portrait PNG must not be empty");
+    }
 }

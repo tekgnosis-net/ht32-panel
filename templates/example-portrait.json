@@ -1,0 +1,117 @@
+{
+  "name": "example-portrait",
+  "orientation": "portrait",
+  "widgets": [
+    {
+      "id": "hostname",
+      "rect": { "x": 6, "y": 6, "w": 158, "h": 18 },
+      "kind": "text",
+      "value": { "src": "hostname" },
+      "size": 14.0,
+      "color": "primary",
+      "align": "center"
+    },
+    {
+      "id": "clock",
+      "rect": { "x": 6, "y": 28, "w": 158, "h": 34 },
+      "kind": "clock",
+      "mode": "digital",
+      "color": "text"
+    },
+    {
+      "id": "date",
+      "rect": { "x": 6, "y": 64, "w": 158, "h": 14 },
+      "kind": "text",
+      "value": { "src": "date", "fmt": "iso" },
+      "size": 11.0,
+      "color": "secondary",
+      "align": "center"
+    },
+    {
+      "id": "cpu_label",
+      "rect": { "x": 6, "y": 88, "w": 36, "h": 12 },
+      "kind": "text",
+      "value": { "src": "literal", "fmt": "CPU" },
+      "size": 10.0,
+      "color": "text",
+      "align": "left"
+    },
+    {
+      "id": "cpu_bar",
+      "rect": { "x": 46, "y": 88, "w": 118, "h": 12 },
+      "kind": "bar",
+      "value": "cpu_percent",
+      "fill": "primary",
+      "bg": 2105376
+    },
+    {
+      "id": "ram_label",
+      "rect": { "x": 6, "y": 106, "w": 36, "h": 12 },
+      "kind": "text",
+      "value": { "src": "literal", "fmt": "RAM" },
+      "size": 10.0,
+      "color": "text",
+      "align": "left"
+    },
+    {
+      "id": "ram_bar",
+      "rect": { "x": 46, "y": 106, "w": 118, "h": 12 },
+      "kind": "bar",
+      "value": "ram_percent",
+      "fill": "secondary",
+      "bg": 2105376
+    },
+    {
+      "id": "cpu_temp_gauge",
+      "rect": { "x": 50, "y": 128, "w": 70, "h": 70 },
+      "kind": "gauge",
+      "value": "cpu_temp",
+      "min": 0.0,
+      "max": 100.0,
+      "color": "primary",
+      "track": 3158064
+    },
+    {
+      "id": "disk_label",
+      "rect": { "x": 6, "y": 204, "w": 80, "h": 12 },
+      "kind": "text",
+      "value": { "src": "literal", "fmt": "DISK" },
+      "size": 10.0,
+      "color": "text",
+      "align": "left"
+    },
+    {
+      "id": "disk_spark",
+      "rect": { "x": 6, "y": 218, "w": 158, "h": 44 },
+      "kind": "sparkline",
+      "a": "disk_history",
+      "b": null,
+      "wrap_around": true,
+      "color_a": "primary",
+      "color_b": "secondary",
+      "bg": 0,
+      "scale": "auto"
+    },
+    {
+      "id": "net_label",
+      "rect": { "x": 6, "y": 266, "w": 80, "h": 12 },
+      "kind": "text",
+      "value": { "src": "literal", "fmt": "NET" },
+      "size": 10.0,
+      "color": "text",
+      "align": "left"
+    },
+    {
+      "id": "net_spark",
+      "rect": { "x": 6, "y": 280, "w": 158, "h": 36 },
+      "kind": "sparkline",
+      "a": "net_rx_history",
+      "b": "net_tx_history",
+      "wrap_around": true,
+      "color_a": "primary",
+      "color_b": "secondary",
+      "bg": 0,
+      "scale": "auto"
+    }
+  ]
+}
