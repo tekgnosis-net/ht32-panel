@@ -4,6 +4,11 @@
   <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
   <title>HT32 Template Editor</title>
   <link rel="stylesheet" href="/editor/editor.css">
+  <!-- editor.js MUST load before Alpine: it defines window.editor, which Alpine
+       evaluates when it auto-initializes and scans x-data="editor()". Both are
+       classic `defer` scripts, which execute in strict document order, so
+       editor.js (first) defines the component before alpine.js (second) starts. -->
+  <script src="/editor/editor.js" defer></script>
   <!-- Alpine.js is vendored + embedded (no CDN, no SRI risk, works offline) -->
   <script src="/editor/alpine.js" defer></script>
 </head>
@@ -70,6 +75,5 @@
       </template>
     </div>
   </div>
-  <script type="module" src="/editor/editor.js"></script>
 </body>
 </html>
