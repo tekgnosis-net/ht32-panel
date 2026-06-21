@@ -102,6 +102,20 @@ impl Default for DisplaySettings {
     }
 }
 
+/// Resolves a face name to a `Box<dyn Face>`.
+///
+/// Resolution order:
+/// 1. Built-in faces (`create_face`).
+/// 2. JSON template in `<state_dir>/templates/<name>.json` (loaded as `TemplateFace`).
+/// 3. `None` — caller falls back to "professional".
+fn resolve_face(name: &str, state_dir: &std::path::Path) -> Option<Box<dyn faces::Face>> {
+    if let Some(f) = faces::create_face(name) {
+        return Some(f);
+    }
+    faces::load_template(state_dir, name)
+        .map(|spec| Box::new(faces::TemplateFace::new(spec)) as Box<dyn faces::Face>)
+}
+
 /// Sensors collection for sampling system data.
 struct Sensors {
     cpu: CpuSensor,
@@ -292,8 +306,8 @@ impl AppState {
         let mut canvas = Canvas::new(canvas_w as u32, canvas_h as u32);
         let framebuffer = Framebuffer::new();
 
-        // Load face from settings
-        let face = faces::create_face(&settings.face).unwrap_or_else(|| {
+        // Load face from settings (built-in first, then templates, then professional).
+        let face = resolve_face(&settings.face, &state_dir).unwrap_or_else(|| {
             warn!(
                 "Unknown face '{}', falling back to 'professional'",
                 settings.face
@@ -879,7 +893,7 @@ impl AppState {
 
     /// Sets the display face.
     pub fn set_face(&self, name: &str) -> Result<()> {
-        if let Some(new_face) = faces::create_face(name) {
+        if let Some(new_face) = resolve_face(name, &self.state_dir) {
             let mut display = self.display.write().unwrap();
             display.complications.init_from_defaults(new_face.as_ref());
             display.face = new_face;
@@ -900,6 +914,19 @@ impl AppState {
     /// Gets the current face name.
     pub fn face_name(&self) -> String {
         self.display.read().unwrap().face.name().to_string()
+    }
+
+    /// Lists all available face ids: built-in faces + names of saved JSON templates.
+    // Not yet wired into web/D-Bus handlers; targeted allow keeps clippy clean
+    // until Task 4 (web editor) adds a caller.
+    #[allow(dead_code)]
+    pub fn list_all_faces(&self) -> Vec<String> {
+        let mut ids: Vec<String> = faces::available_faces()
+            .into_iter()
+            .map(|f| f.id.to_string())
+            .collect();
+        ids.extend(faces::list_templates(&self.state_dir));
+        ids
     }
 
     /// Gets available complications for the current face.

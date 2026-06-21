@@ -965,6 +965,7 @@ dependencies = [
  "png 0.17.16",
  "serde",
  "serde_json",
+ "tempfile",
  "thiserror 1.0.69",
  "tiny-skia",
  "tokio",

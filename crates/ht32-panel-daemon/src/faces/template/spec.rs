@@ -25,10 +25,6 @@
 //!   → `{"fixed":1234.5}` (newtype-variant object).  Uses the default serde
 //!   externally-tagged representation.
 
-// These types are the public API for Tasks 2–3 (resolver + TemplateFace);
-// they are not yet wired into the rest of the crate.
-#![allow(dead_code)]
-
 use crate::faces::layout::Rect;
 use serde::{Deserialize, Serialize};
 

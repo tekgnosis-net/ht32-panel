@@ -17,6 +17,7 @@ pub use ascii::AsciiFace;
 pub use clock::ClockFace;
 pub use digits::DigitsFace;
 pub use professional::ProfessionalFace;
+pub use template::{list_templates, load_template, TemplateFace};
 
 use crate::rendering::Canvas;
 use crate::sensors::data::SystemData;

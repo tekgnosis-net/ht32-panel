@@ -14,8 +14,6 @@
 //!
 //! All other variants expand to exactly 1 widget.
 
-#![allow(dead_code)]
-
 use std::collections::VecDeque;
 use std::f32::consts::PI;
 
