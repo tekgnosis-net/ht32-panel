@@ -1,13 +1,15 @@
 //! Pure server-truth preview: render a draft `TemplateSpec` off-screen through the
 //! real `render_layout`, and report layout warnings — without touching the live device.
 
-use crate::faces::layout::{Layout, WidgetContent};
+use crate::faces::layout::{render_layout, Layout, WidgetContent};
+use crate::faces::template::spec::TemplateSpec;
+use crate::faces::{EnabledComplications, Face, TemplateFace, Theme};
 use crate::rendering::Canvas;
 use crate::sensors::data::SystemData;
+use ht32_panel_hw::Orientation;
 
 /// A non-blocking layout warning surfaced in the editor.
 #[derive(Debug, Clone, serde::Serialize)]
-#[allow(dead_code)]
 pub struct Warning {
     pub widget_id: String,
     pub message: String,
@@ -15,7 +17,6 @@ pub struct Warning {
 
 /// A fixed, representative `SystemData` so previews are deterministic and populated.
 #[allow(clippy::field_reassign_with_default)]
-#[allow(dead_code)]
 pub fn sample_data() -> SystemData {
     let mut d = SystemData::default();
     d.hostname = "preview-host".into();
@@ -45,10 +46,54 @@ pub fn sample_data() -> SystemData {
     d
 }
 
+/// Renders a draft spec off-screen through the REAL renderer and returns
+/// `(png_bytes, warnings)`. Never touches the live device or active face.
+///
+/// Widgets that extend outside the canvas are warned about but excluded from
+/// rendering (so the renderer never draws out-of-bounds).
+pub fn preview_render(
+    spec: &TemplateSpec,
+    theme: &Theme,
+    orientation: Orientation,
+) -> (Vec<u8>, Vec<Warning>) {
+    let (w, h) = orientation.dimensions();
+    let (w, h) = (w as u32, h as u32);
+    let reference = Canvas::new(w, h);
+    let comps = EnabledComplications::new();
+    let layout = TemplateFace::new(spec.clone()).layout(&reference, &sample_data(), theme, &comps);
+    let warnings = check_bounds(&layout, &reference);
+
+    // Exclude out-of-bounds widgets from the render pass so the renderer
+    // never tries to draw past the canvas edge.
+    let warned_ids: std::collections::HashSet<&str> =
+        warnings.iter().map(|w| w.widget_id.as_str()).collect();
+    let render_layout_filtered = Layout {
+        widgets: layout
+            .widgets
+            .into_iter()
+            .filter(|w| !warned_ids.contains(w.id.as_ref()))
+            .collect(),
+    };
+
+    let mut canvas = Canvas::new(w, h);
+    canvas.set_background(theme.background);
+    canvas.clear();
+    render_layout(&mut canvas, &render_layout_filtered);
+
+    let mut png = Vec::new();
+    {
+        let mut enc = png::Encoder::new(&mut png, w, h);
+        enc.set_color(png::ColorType::Rgba);
+        enc.set_depth(png::BitDepth::Eight);
+        let mut writer = enc.write_header().expect("png header");
+        writer.write_image_data(canvas.pixels()).expect("png data");
+    }
+    (png, warnings)
+}
+
 /// Reports widgets whose rect leaves the canvas, or whose resolved text is wider
 /// than its rect. Computed in the same units the renderer draws in, so a warning
 /// can never disagree with the rendered pixels.
-#[allow(dead_code)]
 pub fn check_bounds(layout: &Layout, canvas: &Canvas) -> Vec<Warning> {
     let (cw, ch) = canvas.dimensions();
     let (cw, ch) = (cw as i32, ch as i32);
@@ -80,6 +125,60 @@ mod tests {
     use crate::faces::layout::{Cadence, Layout, Rect, Widget, WidgetContent, ZoneKind};
     use crate::rendering::Canvas;
     use std::borrow::Cow;
+
+    #[test]
+    fn preview_render_paints_and_reports() {
+        use crate::faces::template::spec::*;
+        use crate::faces::Theme;
+        use ht32_panel_hw::Orientation;
+        // One in-bounds bar (paints) + one off-canvas text (warns).
+        let spec = TemplateSpec {
+            name: "p".into(),
+            orientation: None,
+            theme: None,
+            widgets: vec![
+                TemplateWidget {
+                    id: "bar".into(),
+                    rect: Rect {
+                        x: 0,
+                        y: 0,
+                        w: 100,
+                        h: 10,
+                    },
+                    content: TemplateContent::Bar {
+                        value: NumberSource::CpuPercent,
+                        fill: ColorRef::Hex(0xFFFFFF),
+                        bg: ColorRef::Hex(0x000000),
+                    },
+                },
+                TemplateWidget {
+                    id: "off".into(),
+                    rect: Rect {
+                        x: 300,
+                        y: 0,
+                        w: 80,
+                        h: 16,
+                    },
+                    content: TemplateContent::Text {
+                        value: TextSource::Hostname,
+                        size: 12.0,
+                        color: ColorRef::Hex(0xFFFFFF),
+                        align: Align::Left,
+                    },
+                },
+            ],
+        };
+        let theme = Theme::from_preset("nord");
+        let (png, warns) = preview_render(&spec, &theme, Orientation::Landscape);
+        assert!(
+            png.starts_with(&[0x89, b'P', b'N', b'G']),
+            "valid PNG header"
+        );
+        assert!(
+            warns.iter().any(|w| w.widget_id == "off"),
+            "off-canvas widget warns"
+        );
+    }
 
     // NOTE: The brief's test helper references `align: Align::Left` and `crate::faces::Align`,
     // but the actual `WidgetContent::Text` variant has fields `{text, x, y, size, color}` —

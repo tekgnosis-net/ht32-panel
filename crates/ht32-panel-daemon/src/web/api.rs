@@ -7,9 +7,11 @@ use axum::{
     routing::{get, post},
     Json, Router,
 };
+use base64::Engine;
 use serde::Deserialize;
 
 use crate::dbus::DaemonSignals;
+use crate::faces::template::preview::preview_render;
 use crate::faces::template::spec::TemplateSpec;
 use crate::web::WebState;
 
@@ -93,6 +95,21 @@ async fn clone(
     }
 }
 
+/// POST /api/templates/preview (body: TemplateSpec) -> {png_base64, warnings}
+async fn preview(State(st): State<WebState>, Json(spec): Json<TemplateSpec>) -> Response {
+    let orientation = match spec.orientation {
+        Some(o) => o.into(),
+        None => st.app.orientation(),
+    };
+    let theme = match &spec.theme {
+        Some(name) => crate::faces::Theme::from_preset(name),
+        None => st.app.current_theme(),
+    };
+    let (png, warnings) = preview_render(&spec, &theme, orientation);
+    let b64 = base64::engine::general_purpose::STANDARD.encode(png);
+    Json(serde_json::json!({ "png_base64": b64, "warnings": warnings })).into_response()
+}
+
 /// Router for the JSON API. Schema + preview routes are added by later tasks.
 pub fn api_router() -> Router<WebState> {
     Router::new()
@@ -102,6 +119,7 @@ pub fn api_router() -> Router<WebState> {
             get(get_one).put(update).delete(delete),
         )
         .route("/api/templates/:name/clone", post(clone))
+        .route("/api/templates/preview", post(preview))
 }
 
 #[cfg(test)]
@@ -160,5 +178,30 @@ mod tests {
             .await
             .unwrap();
         assert_eq!(resp.status(), StatusCode::BAD_REQUEST);
+    }
+
+    #[tokio::test]
+    async fn preview_returns_png_and_warnings() {
+        let (_d, st) = test_state();
+        let router = super::api_router().with_state(st);
+        let body = r#"{"name":"x","widgets":[
+          {"id":"off","rect":{"x":300,"y":0,"w":80,"h":16},"kind":"text",
+           "value":{"src":"hostname"},"size":12.0,"color":"primary","align":"left"}]}"#;
+        let resp = router
+            .oneshot(
+                axum::http::Request::post("/api/templates/preview")
+                    .header("content-type", "application/json")
+                    .body(axum::body::Body::from(body))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(resp.status(), axum::http::StatusCode::OK);
+        let bytes = axum::body::to_bytes(resp.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let v: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
+        assert!(v["png_base64"].as_str().unwrap().len() > 100);
+        assert!(!v["warnings"].as_array().unwrap().is_empty());
     }
 }

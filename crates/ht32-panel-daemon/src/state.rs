@@ -1083,6 +1083,11 @@ impl AppState {
         self.display.read().unwrap().theme_name.clone()
     }
 
+    /// The active `Theme` (resolved from the current theme name).
+    pub fn current_theme(&self) -> crate::faces::Theme {
+        crate::faces::Theme::from_preset(&self.theme_name())
+    }
+
     /// Sets the theme by name.
     pub fn set_theme(&self, name: &str) -> Result<()> {
         if !faces::available_themes().iter().any(|t| t.id == name) {
