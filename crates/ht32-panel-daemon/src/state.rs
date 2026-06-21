@@ -820,8 +820,14 @@ impl AppState {
     }
 
     /// Triggers a full redraw on the next frame.
+    ///
+    /// Under tile-diff transport an idle frame transmits nothing, so a manual
+    /// recovery (e.g. a glitched panel that didn't trip a write error) must force
+    /// a full send — set `needs_full_redraw`, which `render_frame` honours.
     pub fn force_redraw(&self) {
         self.display.write().unwrap().needs_redraw = true;
+        self.needs_full_redraw
+            .store(true, std::sync::atomic::Ordering::Relaxed);
     }
 
     /// Returns the current canvas as PNG bytes (cached).
