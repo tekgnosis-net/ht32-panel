@@ -708,8 +708,11 @@ impl AppState {
             Self::render_to_framebuffer(&mut render, orientation)?;
 
             // Determine whether a full redraw is required for this frame.
-            // Read-and-clear so subsequent frames use the tile-diff path.
-            let force_full = self.needs_full_redraw.swap(false, Ordering::Relaxed);
+            // Read-and-clear the structural-change flag every frame. When partial
+            // updates are disabled (the default — the tile-diff `0xA2` path is not
+            // yet hardware-validated), force a full redraw every frame.
+            let pending_full = self.needs_full_redraw.swap(false, Ordering::Relaxed);
+            let force_full = pending_full || !self.config.partial_updates;
 
             // Send to LCD; record the outcome for health tracking.
             let send_result = {

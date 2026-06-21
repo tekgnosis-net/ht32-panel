@@ -43,6 +43,14 @@ pub struct Config {
     #[serde(default = "default_lcd_error_log_interval_ms")]
     pub lcd_error_log_interval_ms: u64,
 
+    /// Use tile-diff partial (`0xA2`) USB transport instead of a full redraw each
+    /// frame. Default `false`: the partial path is implemented and unit-tested but
+    /// NOT yet validated on real hardware (the device garbles partial tiles — see
+    /// `docs/design/2026-06-21-ws2-phase4-tilediff-transport.md`). Opt in only for
+    /// a hardware-debug session.
+    #[serde(default)]
+    pub partial_updates: bool,
+
     /// Device configuration
     #[serde(default)]
     pub devices: DevicesConfig,
@@ -225,6 +233,7 @@ impl Default for Config {
             lcd_reconnect_interval_ms: default_lcd_reconnect_interval_ms(),
             lcd_exit_after_ms: default_lcd_exit_after_ms(),
             lcd_error_log_interval_ms: default_lcd_error_log_interval_ms(),
+            partial_updates: false,
             devices: DevicesConfig::default(),
             canvas: CanvasConfig::default(),
         }
