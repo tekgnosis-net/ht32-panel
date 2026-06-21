@@ -1,7 +1,7 @@
 //! Pure server-truth preview: render a draft `TemplateSpec` off-screen through the
 //! real `render_layout`, and report layout warnings — without touching the live device.
 
-use crate::faces::layout::{render_layout, Layout, WidgetContent};
+use crate::faces::layout::{render_layout, Layout, Widget, WidgetContent};
 use crate::faces::template::spec::TemplateSpec;
 use crate::faces::{EnabledComplications, Face, TemplateFace, Theme};
 use crate::rendering::Canvas;
@@ -46,11 +46,56 @@ pub fn sample_data() -> SystemData {
     d
 }
 
+/// True if rendering `w` would draw outside the canvas — exactly the condition
+/// that trips render_layout's `debug_assert!`s (rect off-canvas, or Text/TextScaled
+/// whose drawn extent exceeds the canvas edge). `preview_render` filters these so a
+/// draft with off-canvas content does not panic in debug builds; on release hardware
+/// such content is clipped, so omitting it in the preview is the accepted, warned
+/// divergence. Text that overflows its RECT but stays within the canvas is NOT
+/// filtered — it renders truthfully, matching hardware.
+fn overflows_canvas(w: &Widget, canvas: &Canvas) -> bool {
+    let (cw, ch) = canvas.dimensions();
+    let (cw, ch) = (cw as i32, ch as i32);
+    let r = &w.rect;
+    // rect-based widgets: rect must be fully on-canvas.
+    if r.x < 0 || r.y < 0 || r.x + r.w as i32 > cw || r.y + r.h as i32 > ch {
+        return true;
+    }
+    // Text additionally asserts on the measured text extent (draw_text panics
+    // if x + text_width > canvas width, or y + line_height > canvas height).
+    match &w.content {
+        WidgetContent::Text {
+            text, x, y, size, ..
+        } => {
+            *x < 0
+                || *y < 0
+                || *x + canvas.text_width(text, *size) > cw
+                || *y + canvas.line_height(*size) > ch
+        }
+        WidgetContent::TextScaled {
+            x,
+            y,
+            text,
+            size,
+            x_scale,
+            ..
+        } => {
+            *x < 0
+                || *y < 0
+                || *x + canvas.text_width_scaled(text, *size, *x_scale) > cw
+                || *y + canvas.line_height(*size) > ch
+        }
+        _ => false,
+    }
+}
+
 /// Renders a draft spec off-screen through the REAL renderer and returns
 /// `(png_bytes, warnings)`. Never touches the live device or active face.
 ///
 /// Widgets that extend outside the canvas are warned about but excluded from
-/// rendering (so the renderer never draws out-of-bounds).
+/// rendering (so the renderer never draws out-of-bounds). Text that overflows
+/// its rect but stays within the canvas is warned but NOT filtered — it renders
+/// truthfully, matching hardware behavior.
 pub fn preview_render(
     spec: &TemplateSpec,
     theme: &Theme,
@@ -63,15 +108,14 @@ pub fn preview_render(
     let layout = TemplateFace::new(spec.clone()).layout(&reference, &sample_data(), theme, &comps);
     let warnings = check_bounds(&layout, &reference);
 
-    // Exclude out-of-bounds widgets from the render pass so the renderer
-    // never tries to draw past the canvas edge.
-    let warned_ids: std::collections::HashSet<&str> =
-        warnings.iter().map(|w| w.widget_id.as_str()).collect();
+    // Exclude only widgets whose drawn extent would overflow the canvas.
+    // This is the exact predicate that triggers render_layout's debug_assert!s.
+    // Text that overflows its rect but fits within the canvas is kept (hardware renders it).
     let render_layout_filtered = Layout {
         widgets: layout
             .widgets
             .into_iter()
-            .filter(|w| !warned_ids.contains(w.id.as_ref()))
+            .filter(|w| !overflows_canvas(w, &reference))
             .collect(),
     };
 
@@ -259,6 +303,100 @@ mod tests {
         assert!(check_bounds(&layout, &canvas)
             .iter()
             .any(|w| w.widget_id == "wide"));
+    }
+
+    /// Regression: a Text widget whose rect is fully in-bounds but whose text is wider
+    /// than its rect (yet the text still fits within the canvas) must:
+    ///   (a) produce a `check_bounds` WARNING (text wider than box), AND
+    ///   (b) NOT be filtered — `overflows_canvas` returns false, so render_layout draws it.
+    ///
+    /// Before the fix, the widget was incorrectly dropped because filter was on `warned_ids`.
+    #[test]
+    fn text_wider_than_rect_but_in_canvas_is_warned_and_not_filtered() {
+        // Canvas 170×320. Widget rect at x=4,y=4 w=20 h=16 — fully in-bounds.
+        // Text "WWWWWWWWWW" at size 14.0 is measurably wider than rect.w=20,
+        // but x=4 + text_width is well within 170px.
+        let canvas_ref = Canvas::new(170, 320);
+        let widget = text_widget(
+            "wide_inbounds",
+            Rect {
+                x: 4,
+                y: 4,
+                w: 20,
+                h: 16,
+            },
+            "WWWWWWWWWW",
+            14.0,
+        );
+
+        // (a) check_bounds must warn.
+        let layout = Layout {
+            widgets: vec![widget.clone()],
+        };
+        let warns = check_bounds(&layout, &canvas_ref);
+        assert!(
+            warns.iter().any(|w| w.widget_id == "wide_inbounds"),
+            "check_bounds must warn when text is wider than its rect"
+        );
+
+        // (b) overflows_canvas must return false — text extent stays within 170px.
+        assert!(
+            !overflows_canvas(&widget, &canvas_ref),
+            "overflows_canvas must be false: text fits within canvas even though it exceeds rect"
+        );
+
+        // (c) End-to-end: render a layout containing only this widget and confirm that
+        // render_layout does NOT panic (i.e., the widget was not filtered out and draws fine).
+        let mut render_canvas = Canvas::new(170, 320);
+        render_canvas.set_background(0x000000);
+        render_canvas.clear();
+        render_layout(&mut render_canvas, &layout); // must not panic in debug builds
+        let px = render_canvas.pixels();
+        // At least one non-background pixel in the widget's row (y=4..20) proves it was drawn.
+        let row_start = 4 * 170 * 4; // y=4, row of 170 RGBA pixels
+        let row_end = 20 * 170 * 4; // up to y=20
+        let any_painted = px[row_start..row_end]
+            .chunks_exact(4)
+            .any(|p| p[0] != 0 || p[1] != 0 || p[2] != 0);
+        assert!(
+            any_painted,
+            "widget with text wider-than-rect (but in-canvas) must be rendered, not filtered"
+        );
+    }
+
+    /// Confirm the off-canvas filter still works: a widget whose rect extends past the
+    /// canvas edge is both warned AND filtered (overflows_canvas returns true).
+    #[test]
+    fn rect_off_canvas_is_warned_and_filtered() {
+        let canvas_ref = Canvas::new(170, 320);
+        let widget = text_widget(
+            "off_canvas",
+            Rect {
+                x: 160,
+                y: 4,
+                w: 40, // 160+40=200 > 170 → rect OOB
+                h: 16,
+            },
+            "hi",
+            12.0,
+        );
+
+        let layout = Layout {
+            widgets: vec![widget.clone()],
+        };
+
+        // check_bounds warns.
+        let warns = check_bounds(&layout, &canvas_ref);
+        assert!(
+            warns.iter().any(|w| w.widget_id == "off_canvas"),
+            "off-canvas widget must produce a warning"
+        );
+
+        // overflows_canvas returns true → it would be filtered.
+        assert!(
+            overflows_canvas(&widget, &canvas_ref),
+            "overflows_canvas must be true for a rect that extends past the canvas edge"
+        );
     }
 
     #[test]
