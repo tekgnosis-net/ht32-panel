@@ -1,23 +1,89 @@
+function defaultContent(kind) {
+  switch (kind) {
+    case "text":      return { kind:"text",      value:{src:"hostname"},   size:12.0, color:"primary",   align:"left" };
+    case "bar":       return { kind:"bar",        value:"cpu_percent",     fill:"primary",  bg:2105376 };
+    case "gauge":     return { kind:"gauge",      value:"cpu_temp",        min:0.0,   max:100.0, color:"primary", track:"background" };
+    case "sparkline": return { kind:"sparkline",  a:"disk_history",        b:null, wrap_around:true,
+                               color_a:"primary", color_b:"secondary",     bg:0, scale:"auto" };
+    case "clock":     return { kind:"clock",      mode:"digital",          color:"text" };
+  }
+}
+
 window.editor = function () {
   return {
-    schema: { kinds: [] }, templates: [], name: "",
+    schema: { kinds: [], text_sources: [], number_sources: [] },
+    templates: [], name: "",
     spec: { name: "", orientation: "portrait", widgets: [] },
-    sel: null, truthSrc: "", status: "", scale: 1.5,
+    dims: [170, 320],
+    sel: null, truthSrc: "", warnings: [], status: "", scale: 1.5,
+    _t: null,
+
     async init() {
       this.schema = await (await fetch("/api/template-schema")).json();
       this.templates = await (await fetch("/api/templates")).json();
       this.dims = this.spec.orientation.startsWith("portrait") ? [170,320] : [320,170];
     },
+
     deviceStyle() {
       const [w,h] = this.dims; const s = this.scale;
       return `width:${w*s}px;height:${h*s}px`;
     },
+
     widgetStyle(w) {
       const s = this.scale; const r = w.rect;
       return `left:${r.x*s}px;top:${r.y*s}px;width:${r.w*s}px;height:${r.h*s}px;`+
              `font-size:10px;color:#888;background:#222`;
     },
-    select(i){ this.sel = i; },
-    addWidget(){}, save(){}, load(){}, activate(){}, refreshTruth(){}, // Tasks 8/9/10/11
+
+    select(i) { this.sel = i; },
+
+    addWidget(kind) {
+      const id = kind + "_" + (this.spec.widgets.length + 1);
+      this.spec.widgets.push({ id, rect:{x:8,y:8,w:80,h:20}, ...defaultContent(kind) });
+      this.sel = this.spec.widgets.length - 1;
+      this.refreshTruth();
+    },
+
+    async load() {
+      if (!this.name) { this.spec = { name:"", orientation:"portrait", widgets:[] }; return; }
+      this.spec = await (await fetch(`/api/templates/${this.name}`)).json();
+      if (!this.spec.orientation) this.spec.orientation = "portrait";
+      this.dims = this.spec.orientation.startsWith("portrait") ? [170,320] : [320,170];
+      this.sel = null; this.refreshTruth();
+    },
+
+    async save() {
+      this.spec.name = this.name;
+      const exists = this.templates.includes(this.name);
+      const url = exists ? `/api/templates/${this.name}` : "/api/templates";
+      const method = exists ? "PUT" : "POST";
+      const resp = await fetch(url, { method, headers:{ "content-type":"application/json" },
+                                      body: JSON.stringify(this.spec) });
+      if (resp.ok) {
+        this.status = "saved";
+        this.templates = await (await fetch("/api/templates")).json();
+      } else {
+        this.status = "error: " + (await resp.text());
+      }
+    },
+
+    async activate() {
+      await this.save();
+      const body = new URLSearchParams({ face: this.name });
+      await fetch("/face", { method:"POST", body });
+      this.status = "activated on panel";
+    },
+
+    refreshTruth() {
+      clearTimeout(this._t);
+      this._t = setTimeout(async () => {
+        const resp = await fetch("/api/templates/preview",
+          { method:"POST", headers:{ "content-type":"application/json" }, body: JSON.stringify(this.spec) });
+        if (!resp.ok) { this.status = "preview error"; return; }
+        const j = await resp.json();
+        this.truthSrc = "data:image/png;base64," + j.png_base64;
+        this.warnings = j.warnings;
+      }, 400);
+    },
   };
 };

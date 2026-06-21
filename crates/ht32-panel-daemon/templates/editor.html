@@ -8,7 +8,7 @@
   <script src="/editor/alpine.js" defer></script>
 </head>
 <body>
-  <div class="editor" x-data="editor()" x-init="init()">
+  <div class="editor" x-data="editor()">
     <div class="topbar">
       <strong>Template</strong>
       <select x-model="name" @change="load()">
@@ -38,9 +38,36 @@
       <img class="device" :src="truthSrc" :style="deviceStyle()" alt="true preview">
     </div>
 
-    <div class="props" x-show="sel!==null">
-      <!-- property panel fields injected in Task 8 -->
-      <em x-show="sel===null">Select a widget</em>
+    <div class="props" x-show="sel!==null" x-data>
+      <template x-if="sel!==null">
+        <div>
+          <label>id <input x-model="spec.widgets[sel].id"></label>
+          <label>x <input type="number" x-model.number="spec.widgets[sel].rect.x" @input="refreshTruth()"></label>
+          <label>y <input type="number" x-model.number="spec.widgets[sel].rect.y" @input="refreshTruth()"></label>
+          <label>w <input type="number" x-model.number="spec.widgets[sel].rect.w" @input="refreshTruth()"></label>
+          <label>h <input type="number" x-model.number="spec.widgets[sel].rect.h" @input="refreshTruth()"></label>
+
+          <!-- bar/gauge numeric binding -->
+          <template x-if="['bar','gauge'].includes(spec.widgets[sel].kind)">
+            <label>source
+              <select x-model="spec.widgets[sel].value" @change="refreshTruth()">
+                <template x-for="s in schema.number_sources" :key="s"><option :value="s" x-text="s"></option></template>
+              </select>
+            </label>
+          </template>
+
+          <!-- text source -->
+          <template x-if="spec.widgets[sel].kind==='text'">
+            <label>text source
+              <select x-model="spec.widgets[sel].value.src" @change="refreshTruth()">
+                <template x-for="s in schema.text_sources" :key="s"><option :value="s" x-text="s"></option></template>
+              </select>
+            </label>
+          </template>
+
+          <button @click="spec.widgets.splice(sel,1); sel=null; refreshTruth()">Delete widget</button>
+        </div>
+      </template>
     </div>
   </div>
   <script type="module" src="/editor/editor.js"></script>
