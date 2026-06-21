@@ -159,7 +159,7 @@ impl ProfessionalFace {
 
             // Hostname (always shown)
             layout.push(Widget {
-                id: "hostname",
+                id: "hostname".into(),
                 rect: Rect {
                     x: margin,
                     y,
@@ -198,7 +198,7 @@ impl ProfessionalFace {
                     {
                         let (id, content) = mini_clock_draw_to_widget(draw, i);
                         layout.push(Widget {
-                            id,
+                            id: id.into(),
                             rect: Rect {
                                 x: clock_cx - clock_radius as i32,
                                 y: clock_cy - clock_radius as i32,
@@ -215,7 +215,7 @@ impl ProfessionalFace {
                     let time_width = canvas.text_width(&time_str, FONT_LARGE);
                     let tx = width as i32 - margin - time_width;
                     layout.push(Widget {
-                        id: "time",
+                        id: "time".into(),
                         rect: Rect {
                             x: tx,
                             y,
@@ -242,7 +242,7 @@ impl ProfessionalFace {
                     let date_width = canvas.text_width(&date_str, FONT_SMALL);
                     let dx = width as i32 - margin - date_width;
                     layout.push(Widget {
-                        id: "date",
+                        id: "date".into(),
                         rect: Rect {
                             x: dx,
                             y,
@@ -269,7 +269,7 @@ impl ProfessionalFace {
             // Base element: Uptime (always shown)
             let uptime_text = format!("Up: {}", data.uptime);
             layout.push(Widget {
-                id: "uptime",
+                id: "uptime".into(),
                 rect: Rect {
                     x: margin,
                     y,
@@ -293,7 +293,7 @@ impl ProfessionalFace {
                 if let Some(ref ip) = data.display_ip {
                     // IP label on its own line
                     layout.push(Widget {
-                        id: "ip_label",
+                        id: "ip_label".into(),
                         rect: Rect {
                             x: margin,
                             y,
@@ -319,7 +319,7 @@ impl ProfessionalFace {
                         let split_pos = ip[..mid].rfind(':').map(|p| p + 1).unwrap_or(mid);
                         let (first, second) = ip.split_at(split_pos);
                         layout.push(Widget {
-                            id: "ip_addr_line1",
+                            id: "ip_addr_line1".into(),
                             rect: Rect {
                                 x: margin,
                                 y,
@@ -338,7 +338,7 @@ impl ProfessionalFace {
                         });
                         y += line_height;
                         layout.push(Widget {
-                            id: "ip_addr_line2",
+                            id: "ip_addr_line2".into(),
                             rect: Rect {
                                 x: margin,
                                 y,
@@ -357,7 +357,7 @@ impl ProfessionalFace {
                         });
                     } else {
                         layout.push(Widget {
-                            id: "ip_addr",
+                            id: "ip_addr".into(),
                             rect: Rect {
                                 x: margin,
                                 y,
@@ -383,7 +383,7 @@ impl ProfessionalFace {
             if is_enabled(complication_names::CPU_TEMP) {
                 if let Some(temp) = data.cpu_temp {
                     layout.push(Widget {
-                        id: "temp_label",
+                        id: "temp_label".into(),
                         rect: Rect {
                             x: margin,
                             y,
@@ -404,7 +404,7 @@ impl ProfessionalFace {
                     let temp_w = canvas.text_width(&temp_val, FONT_SMALL);
                     let tx = width as i32 - margin - temp_w;
                     layout.push(Widget {
-                        id: "temp_value",
+                        id: "temp_value".into(),
                         rect: Rect {
                             x: tx,
                             y,
@@ -428,7 +428,7 @@ impl ProfessionalFace {
             // Base element: CPU label on its own line, then bar below
             let cpu_label = format!("CPU: {:2.0}%", data.cpu_percent);
             layout.push(Widget {
-                id: "cpu_label",
+                id: "cpu_label".into(),
                 rect: Rect {
                     x: margin,
                     y,
@@ -447,7 +447,7 @@ impl ProfessionalFace {
             });
             y += line_height;
             layout.push(Widget {
-                id: "cpu_bar",
+                id: "cpu_bar".into(),
                 rect: Rect {
                     x: margin,
                     y,
@@ -471,7 +471,7 @@ impl ProfessionalFace {
             // Base element: RAM label on its own line, then bar below
             let ram_label = format!("RAM: {:2.0}%", data.ram_percent);
             layout.push(Widget {
-                id: "ram_label",
+                id: "ram_label".into(),
                 rect: Rect {
                     x: margin,
                     y,
@@ -490,7 +490,7 @@ impl ProfessionalFace {
             });
             y += line_height;
             layout.push(Widget {
-                id: "ram_bar",
+                id: "ram_bar".into(),
                 rect: Rect {
                     x: margin,
                     y,
@@ -516,7 +516,7 @@ impl ProfessionalFace {
                 let disk_r = SystemData::format_rate_compact(data.disk_read_rate);
                 let disk_w = SystemData::format_rate_compact(data.disk_write_rate);
                 layout.push(Widget {
-                    id: "disk_label",
+                    id: "disk_label".into(),
                     rect: Rect {
                         x: margin,
                         y,
@@ -540,7 +540,7 @@ impl ProfessionalFace {
                 let r_text_w = canvas.text_width(&r_text, FONT_SMALL);
                 let r_x = width as i32 - margin - w_text_w - r_text_w;
                 layout.push(Widget {
-                    id: "disk_read_value",
+                    id: "disk_read_value".into(),
                     rect: Rect {
                         x: r_x,
                         y,
@@ -558,7 +558,7 @@ impl ProfessionalFace {
                     },
                 });
                 layout.push(Widget {
-                    id: "disk_write_value",
+                    id: "disk_write_value".into(),
                     rect: Rect {
                         x: r_x + r_text_w,
                         y,
@@ -577,7 +577,7 @@ impl ProfessionalFace {
                 });
                 y += line_height;
                 layout.push(Widget {
-                    id: "disk_graph",
+                    id: "disk_graph".into(),
                     rect: Rect {
                         x: margin,
                         y,
@@ -609,7 +609,7 @@ impl ProfessionalFace {
                 let net_rx = SystemData::format_rate_compact(data.net_rx_rate);
                 let net_tx = SystemData::format_rate_compact(data.net_tx_rate);
                 layout.push(Widget {
-                    id: "net_label",
+                    id: "net_label".into(),
                     rect: Rect {
                         x: margin,
                         y,
@@ -633,7 +633,7 @@ impl ProfessionalFace {
                 let rx_text_w = canvas.text_width(&rx_text, FONT_SMALL);
                 let rx_x = width as i32 - margin - tx_text_w - rx_text_w;
                 layout.push(Widget {
-                    id: "net_rx_value",
+                    id: "net_rx_value".into(),
                     rect: Rect {
                         x: rx_x,
                         y,
@@ -651,7 +651,7 @@ impl ProfessionalFace {
                     },
                 });
                 layout.push(Widget {
-                    id: "net_tx_value",
+                    id: "net_tx_value".into(),
                     rect: Rect {
                         x: rx_x + rx_text_w,
                         y,
@@ -670,7 +670,7 @@ impl ProfessionalFace {
                 });
                 y += line_height;
                 layout.push(Widget {
-                    id: "net_graph",
+                    id: "net_graph".into(),
                     rect: Rect {
                         x: margin,
                         y,
@@ -705,7 +705,7 @@ impl ProfessionalFace {
             // Hostname (always shown)
             y = 1;
             layout.push(Widget {
-                id: "hostname",
+                id: "hostname".into(),
                 rect: Rect {
                     x: margin,
                     y,
@@ -744,7 +744,7 @@ impl ProfessionalFace {
                     {
                         let (id, content) = mini_clock_draw_to_widget(draw, i);
                         layout.push(Widget {
-                            id,
+                            id: id.into(),
                             rect: Rect {
                                 x: clock_cx - clock_radius as i32,
                                 y: clock_cy - clock_radius as i32,
@@ -761,7 +761,7 @@ impl ProfessionalFace {
                     let time_width = canvas.text_width(&time_str, FONT_LARGE);
                     let tx = width as i32 - margin - time_width;
                     layout.push(Widget {
-                        id: "time",
+                        id: "time".into(),
                         rect: Rect {
                             x: tx,
                             y,
@@ -788,7 +788,7 @@ impl ProfessionalFace {
                     let date_width = canvas.text_width(&date_str, FONT_SMALL);
                     let dx = width as i32 - margin - date_width;
                     layout.push(Widget {
-                        id: "date",
+                        id: "date".into(),
                         rect: Rect {
                             x: dx,
                             y,
@@ -811,7 +811,7 @@ impl ProfessionalFace {
             // Up: on left side
             let uptime_text = format!("Up: {}", data.uptime);
             layout.push(Widget {
-                id: "uptime",
+                id: "uptime".into(),
                 rect: Rect {
                     x: margin,
                     y,
@@ -835,7 +835,7 @@ impl ProfessionalFace {
                 if let Some(ref ip) = data.display_ip {
                     let ip_text = format!("IP: {}", ip);
                     layout.push(Widget {
-                        id: "ip",
+                        id: "ip".into(),
                         rect: Rect {
                             x: margin,
                             y,
@@ -859,7 +859,7 @@ impl ProfessionalFace {
             // CPU: label, bar, and temp all on same line
             let cpu_label = format!("CPU: {:2.0}%", data.cpu_percent);
             layout.push(Widget {
-                id: "cpu_label",
+                id: "cpu_label".into(),
                 rect: Rect {
                     x: margin,
                     y,
@@ -877,7 +877,7 @@ impl ProfessionalFace {
                 },
             });
             layout.push(Widget {
-                id: "cpu_bar",
+                id: "cpu_bar".into(),
                 rect: Rect {
                     x: bar_x,
                     y: y + 2,
@@ -903,7 +903,7 @@ impl ProfessionalFace {
                     let temp_w = canvas.text_width(&temp_val, FONT_SMALL);
                     let tx = width as i32 - margin - temp_w;
                     layout.push(Widget {
-                        id: "temp_value",
+                        id: "temp_value".into(),
                         rect: Rect {
                             x: tx,
                             y,
@@ -927,7 +927,7 @@ impl ProfessionalFace {
             // RAM: label and bar on same line
             let ram_label = format!("RAM: {:2.0}%", data.ram_percent);
             layout.push(Widget {
-                id: "ram_label",
+                id: "ram_label".into(),
                 rect: Rect {
                     x: margin,
                     y,
@@ -945,7 +945,7 @@ impl ProfessionalFace {
                 },
             });
             layout.push(Widget {
-                id: "ram_bar",
+                id: "ram_bar".into(),
                 rect: Rect {
                     x: bar_x,
                     y: y + 2,
@@ -971,7 +971,7 @@ impl ProfessionalFace {
                 let disk_r = SystemData::format_rate_compact(data.disk_read_rate);
                 let disk_w = SystemData::format_rate_compact(data.disk_write_rate);
                 layout.push(Widget {
-                    id: "disk_label",
+                    id: "disk_label".into(),
                     rect: Rect {
                         x: margin,
                         y,
@@ -995,7 +995,7 @@ impl ProfessionalFace {
                 let r_text_w = canvas.text_width(&r_text, FONT_SMALL);
                 let r_x = width as i32 - margin - w_text_w - r_text_w;
                 layout.push(Widget {
-                    id: "disk_read_value",
+                    id: "disk_read_value".into(),
                     rect: Rect {
                         x: r_x,
                         y,
@@ -1013,7 +1013,7 @@ impl ProfessionalFace {
                     },
                 });
                 layout.push(Widget {
-                    id: "disk_write_value",
+                    id: "disk_write_value".into(),
                     rect: Rect {
                         x: r_x + r_text_w,
                         y,
@@ -1032,7 +1032,7 @@ impl ProfessionalFace {
                 });
                 y += line_height + 4;
                 layout.push(Widget {
-                    id: "disk_graph",
+                    id: "disk_graph".into(),
                     rect: Rect {
                         x: margin,
                         y,
@@ -1064,7 +1064,7 @@ impl ProfessionalFace {
                 let net_rx = SystemData::format_rate_compact(data.net_rx_rate);
                 let net_tx = SystemData::format_rate_compact(data.net_tx_rate);
                 layout.push(Widget {
-                    id: "net_label",
+                    id: "net_label".into(),
                     rect: Rect {
                         x: margin,
                         y,
@@ -1088,7 +1088,7 @@ impl ProfessionalFace {
                 let rx_text_w = canvas.text_width(&rx_text, FONT_SMALL);
                 let rx_x = width as i32 - margin - tx_text_w - rx_text_w;
                 layout.push(Widget {
-                    id: "net_rx_value",
+                    id: "net_rx_value".into(),
                     rect: Rect {
                         x: rx_x,
                         y,
@@ -1106,7 +1106,7 @@ impl ProfessionalFace {
                     },
                 });
                 layout.push(Widget {
-                    id: "net_tx_value",
+                    id: "net_tx_value".into(),
                     rect: Rect {
                         x: rx_x + rx_text_w,
                         y,
@@ -1125,7 +1125,7 @@ impl ProfessionalFace {
                 });
                 y += line_height + 4;
                 layout.push(Widget {
-                    id: "net_graph",
+                    id: "net_graph".into(),
                     rect: Rect {
                         x: margin,
                         y,

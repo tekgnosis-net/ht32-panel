@@ -7,6 +7,7 @@
 
 use crate::rendering::Canvas;
 use serde::{Deserialize, Serialize};
+use std::borrow::Cow;
 
 /// Bounding box of a widget, in canvas coordinates.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -105,7 +106,7 @@ pub enum WidgetContent {
 #[derive(Debug, Clone)]
 #[allow(dead_code)]
 pub struct Widget {
-    pub id: &'static str,
+    pub id: Cow<'static, str>,
     pub rect: Rect,
     pub kind: ZoneKind,
     pub cadence: Cadence,
@@ -238,7 +239,7 @@ mod tests {
         canvas.clear();
         let mut layout = Layout::new();
         layout.push(Widget {
-            id: "ln",
+            id: "ln".into(),
             rect: Rect {
                 x: 0,
                 y: 0,
@@ -257,7 +258,7 @@ mod tests {
             },
         });
         layout.push(Widget {
-            id: "ci",
+            id: "ci".into(),
             rect: Rect {
                 x: 0,
                 y: 0,
@@ -300,7 +301,7 @@ mod tests {
         canvas.clear();
         let mut layout = Layout::new();
         layout.push(Widget {
-            id: "ts",
+            id: "ts".into(),
             rect: Rect {
                 x: 0,
                 y: 0,
@@ -344,7 +345,7 @@ mod tests {
         canvas.clear();
         let mut layout = Layout::new();
         layout.push(Widget {
-            id: "arc",
+            id: "arc".into(),
             rect: Rect {
                 x: 0,
                 y: 0,
@@ -386,7 +387,7 @@ mod tests {
         canvas.clear();
         let mut layout = Layout::new();
         layout.push(Widget {
-            id: "bar",
+            id: "bar".into(),
             rect: Rect {
                 x: 0,
                 y: 0,
@@ -442,7 +443,7 @@ mod tests {
         via_layout.clear();
         let mut layout = Layout::new();
         layout.push(Widget {
-            id: "ds",
+            id: "ds".into(),
             rect: Rect { x: 0, y: 0, w, h },
             kind: ZoneKind::Dynamic,
             cadence: Cadence::EveryFrame,
@@ -494,7 +495,7 @@ mod tests {
         via_layout.clear();
         let mut layout = Layout::new();
         layout.push(Widget {
-            id: "ds",
+            id: "ds".into(),
             rect: Rect { x: 0, y: 0, w, h },
             kind: ZoneKind::Dynamic,
             cadence: Cadence::EveryFrame,

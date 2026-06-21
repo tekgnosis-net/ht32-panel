@@ -219,7 +219,7 @@ impl AsciiFace {
 
             // Hostname (always shown)
             layout.push(Widget {
-                id: "hostname",
+                id: "hostname".into(),
                 rect: Rect {
                     x: margin,
                     y,
@@ -257,7 +257,7 @@ impl AsciiFace {
                     {
                         let (id, content) = mini_clock_draw_to_widget(draw, i);
                         layout.push(Widget {
-                            id,
+                            id: id.into(),
                             rect: Rect {
                                 x: clock_cx - clock_radius as i32,
                                 y: clock_cy - clock_radius as i32,
@@ -274,7 +274,7 @@ impl AsciiFace {
                     let time_width = canvas.text_width(&time_str, FONT_LARGE);
                     let tx = width as i32 - margin - time_width;
                     layout.push(Widget {
-                        id: "time",
+                        id: "time".into(),
                         rect: Rect {
                             x: tx,
                             y,
@@ -301,7 +301,7 @@ impl AsciiFace {
                     let date_width = canvas.text_width(&date_str, FONT_SMALL);
                     let dx = width as i32 - margin - date_width;
                     layout.push(Widget {
-                        id: "date",
+                        id: "date".into(),
                         rect: Rect {
                             x: dx,
                             y,
@@ -326,7 +326,7 @@ impl AsciiFace {
             // Up: on its own line (two lines below date)
             let uptime_text = format!("Up: {}", data.uptime);
             layout.push(Widget {
-                id: "uptime",
+                id: "uptime".into(),
                 rect: Rect {
                     x: margin,
                     y,
@@ -349,7 +349,7 @@ impl AsciiFace {
             if is_enabled(complication_names::IP_ADDRESS) {
                 if let Some(ref ip) = data.display_ip {
                     layout.push(Widget {
-                        id: "ip_label",
+                        id: "ip_label".into(),
                         rect: Rect {
                             x: margin,
                             y,
@@ -375,7 +375,7 @@ impl AsciiFace {
                         let split_pos = ip[..mid].rfind(':').map(|p| p + 1).unwrap_or(mid);
                         let (first, second) = ip.split_at(split_pos);
                         layout.push(Widget {
-                            id: "ip_addr_line1",
+                            id: "ip_addr_line1".into(),
                             rect: Rect {
                                 x: margin,
                                 y,
@@ -394,7 +394,7 @@ impl AsciiFace {
                         });
                         y += line_height;
                         layout.push(Widget {
-                            id: "ip_addr_line2",
+                            id: "ip_addr_line2".into(),
                             rect: Rect {
                                 x: margin,
                                 y,
@@ -413,7 +413,7 @@ impl AsciiFace {
                         });
                     } else {
                         layout.push(Widget {
-                            id: "ip_addr",
+                            id: "ip_addr".into(),
                             rect: Rect {
                                 x: margin,
                                 y,
@@ -439,7 +439,7 @@ impl AsciiFace {
             if is_enabled(complication_names::CPU_TEMP) {
                 if let Some(temp) = data.cpu_temp {
                     layout.push(Widget {
-                        id: "temp_label",
+                        id: "temp_label".into(),
                         rect: Rect {
                             x: margin,
                             y,
@@ -460,7 +460,7 @@ impl AsciiFace {
                     let temp_w = canvas.text_width(&temp_val, FONT_SMALL);
                     let tx = width as i32 - margin - temp_w;
                     layout.push(Widget {
-                        id: "temp_val",
+                        id: "temp_val".into(),
                         rect: Rect {
                             x: tx,
                             y,
@@ -484,7 +484,7 @@ impl AsciiFace {
             // CPU: label line, then bar on next line
             let cpu_label = format!("CPU: {:2.0}%", data.cpu_percent);
             layout.push(Widget {
-                id: "cpu_label",
+                id: "cpu_label".into(),
                 rect: Rect {
                     x: margin,
                     y,
@@ -504,7 +504,7 @@ impl AsciiFace {
             y += line_height;
             let cpu_bar = ascii_bar(data.cpu_percent, bar_width);
             layout.push(Widget {
-                id: "cpu_bar",
+                id: "cpu_bar".into(),
                 rect: Rect {
                     x: margin,
                     y,
@@ -526,7 +526,7 @@ impl AsciiFace {
             // RAM: label line, then bar on next line
             let ram_label = format!("RAM: {:2.0}%", data.ram_percent);
             layout.push(Widget {
-                id: "ram_label",
+                id: "ram_label".into(),
                 rect: Rect {
                     x: margin,
                     y,
@@ -546,7 +546,7 @@ impl AsciiFace {
             y += line_height;
             let ram_bar = ascii_bar(data.ram_percent, bar_width);
             layout.push(Widget {
-                id: "ram_bar",
+                id: "ram_bar".into(),
                 rect: Rect {
                     x: margin,
                     y,
@@ -570,7 +570,7 @@ impl AsciiFace {
                 let disk_r = SystemData::format_rate_compact(data.disk_read_rate);
                 let disk_w = SystemData::format_rate_compact(data.disk_write_rate);
                 layout.push(Widget {
-                    id: "dsk_label",
+                    id: "dsk_label".into(),
                     rect: Rect {
                         x: margin,
                         y,
@@ -591,7 +591,7 @@ impl AsciiFace {
                 let disk_rates_w = canvas.text_width(&disk_rates, FONT_SMALL);
                 let drx = width as i32 - margin - disk_rates_w;
                 layout.push(Widget {
-                    id: "dsk_rates",
+                    id: "dsk_rates".into(),
                     rect: Rect {
                         x: drx,
                         y,
@@ -616,7 +616,7 @@ impl AsciiFace {
                 );
                 let dsk_spark = format!("[{}]", sparkline);
                 layout.push(Widget {
-                    id: "dsk_spark",
+                    id: "dsk_spark".into(),
                     rect: Rect {
                         x: margin,
                         y,
@@ -641,7 +641,7 @@ impl AsciiFace {
                 let net_rx = SystemData::format_rate_compact(data.net_rx_rate);
                 let net_tx = SystemData::format_rate_compact(data.net_tx_rate);
                 layout.push(Widget {
-                    id: "net_label",
+                    id: "net_label".into(),
                     rect: Rect {
                         x: margin,
                         y,
@@ -662,7 +662,7 @@ impl AsciiFace {
                 let net_rates_w = canvas.text_width(&net_rates, FONT_SMALL);
                 let nrx = width as i32 - margin - net_rates_w;
                 layout.push(Widget {
-                    id: "net_rates",
+                    id: "net_rates".into(),
                     rect: Rect {
                         x: nrx,
                         y,
@@ -687,7 +687,7 @@ impl AsciiFace {
                 );
                 let net_spark = format!("[{}]", sparkline);
                 layout.push(Widget {
-                    id: "net_spark",
+                    id: "net_spark".into(),
                     rect: Rect {
                         x: margin,
                         y,
@@ -709,7 +709,7 @@ impl AsciiFace {
             // Landscape layout
             // Hostname (always shown)
             layout.push(Widget {
-                id: "hostname",
+                id: "hostname".into(),
                 rect: Rect {
                     x: margin,
                     y,
@@ -747,7 +747,7 @@ impl AsciiFace {
                     {
                         let (id, content) = mini_clock_draw_to_widget(draw, i);
                         layout.push(Widget {
-                            id,
+                            id: id.into(),
                             rect: Rect {
                                 x: clock_cx - clock_radius as i32,
                                 y: clock_cy - clock_radius as i32,
@@ -764,7 +764,7 @@ impl AsciiFace {
                     let time_width = canvas.text_width(&time_str, FONT_LARGE);
                     let tx = width as i32 - margin - time_width;
                     layout.push(Widget {
-                        id: "time",
+                        id: "time".into(),
                         rect: Rect {
                             x: tx,
                             y,
@@ -791,7 +791,7 @@ impl AsciiFace {
                     let date_width = canvas.text_width(&date_str, FONT_NORMAL);
                     let dx = width as i32 - margin - date_width;
                     layout.push(Widget {
-                        id: "date",
+                        id: "date".into(),
                         rect: Rect {
                             x: dx,
                             y,
@@ -814,7 +814,7 @@ impl AsciiFace {
             // Base element: Uptime (always shown, same line as date on left)
             let uptime_text = format!("Up: {}", data.uptime);
             layout.push(Widget {
-                id: "uptime",
+                id: "uptime".into(),
                 rect: Rect {
                     x: margin,
                     y,
@@ -838,7 +838,7 @@ impl AsciiFace {
                 if let Some(ref ip) = data.display_ip {
                     let ip_text = format!("IP: {}", ip);
                     layout.push(Widget {
-                        id: "ip_addr",
+                        id: "ip_addr".into(),
                         rect: Rect {
                             x: margin,
                             y,
@@ -873,7 +873,7 @@ impl AsciiFace {
                 format!("CPU {} {:3.0}%", cpu_bar, data.cpu_percent)
             };
             layout.push(Widget {
-                id: "cpu_bar",
+                id: "cpu_bar".into(),
                 rect: Rect {
                     x: margin,
                     y,
@@ -896,7 +896,7 @@ impl AsciiFace {
             let ram_bar = ascii_bar(data.ram_percent, bar_chars);
             let ram_text = format!("RAM {} {:3.0}%", ram_bar, data.ram_percent);
             layout.push(Widget {
-                id: "ram_bar",
+                id: "ram_bar".into(),
                 rect: Rect {
                     x: margin,
                     y,
@@ -920,7 +920,7 @@ impl AsciiFace {
                 let disk_r = SystemData::format_rate_compact(data.disk_read_rate);
                 let disk_w = SystemData::format_rate_compact(data.disk_write_rate);
                 layout.push(Widget {
-                    id: "dsk_label",
+                    id: "dsk_label".into(),
                     rect: Rect {
                         x: margin,
                         y,
@@ -939,7 +939,7 @@ impl AsciiFace {
                 });
                 let disk_rates = format!("R:{} W:{}", disk_r, disk_w);
                 layout.push(Widget {
-                    id: "dsk_rates",
+                    id: "dsk_rates".into(),
                     rect: Rect {
                         x: margin + 40,
                         y,
@@ -964,7 +964,7 @@ impl AsciiFace {
                 );
                 let dsk_spark = format!("[{}]", sparkline);
                 layout.push(Widget {
-                    id: "dsk_spark",
+                    id: "dsk_spark".into(),
                     rect: Rect {
                         x: margin,
                         y,
@@ -989,7 +989,7 @@ impl AsciiFace {
                 let net_rx = SystemData::format_rate_compact(data.net_rx_rate);
                 let net_tx = SystemData::format_rate_compact(data.net_tx_rate);
                 layout.push(Widget {
-                    id: "net_label",
+                    id: "net_label".into(),
                     rect: Rect {
                         x: margin,
                         y,
@@ -1008,7 +1008,7 @@ impl AsciiFace {
                 });
                 let net_rates = format!("D:{} U:{}", net_rx, net_tx);
                 layout.push(Widget {
-                    id: "net_rates",
+                    id: "net_rates".into(),
                     rect: Rect {
                         x: margin + 40,
                         y,
@@ -1033,7 +1033,7 @@ impl AsciiFace {
                 );
                 let net_spark = format!("[{}]", sparkline);
                 layout.push(Widget {
-                    id: "net_spark",
+                    id: "net_spark".into(),
                     rect: Rect {
                         x: margin,
                         y,
@@ -1183,7 +1183,7 @@ mod tests {
         let comps = EnabledComplications::new();
         let canvas = Canvas::new(170, 320);
         let layout = face.layout(&canvas, &data, &theme, &comps);
-        let ids: Vec<&str> = layout.widgets.iter().map(|w| w.id).collect();
+        let ids: Vec<&str> = layout.widgets.iter().map(|w| w.id.as_ref()).collect();
         // IPv6 long enough to wrap: both lines must be present.
         assert!(
             ids.contains(&"ip_addr_line1") && ids.contains(&"ip_addr_line2"),

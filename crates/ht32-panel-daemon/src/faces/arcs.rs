@@ -231,7 +231,7 @@ impl ArcsFace {
                 }
             };
             layout.push(Widget {
-                id: widget_id,
+                id: widget_id.into(),
                 rect: Rect {
                     x: cx - radius as i32,
                     y: cy - radius as i32,
@@ -333,7 +333,7 @@ impl ArcsFace {
                     {
                         let (id, content) = mini_clock_draw_to_widget(draw, i);
                         layout.push(Widget {
-                            id,
+                            id: id.into(),
                             rect: Rect {
                                 x: clock_cx - clock_radius as i32,
                                 y: clock_cy - clock_radius as i32,
@@ -351,7 +351,7 @@ impl ArcsFace {
                     let time_width = canvas.text_width(&time_str, FONT_NORMAL);
                     let time_x = (width as i32 - time_width) / 2;
                     layout.push(Widget {
-                        id: "time",
+                        id: "time".into(),
                         rect: Rect {
                             x: time_x,
                             y,
@@ -377,7 +377,7 @@ impl ArcsFace {
                     let date_width = canvas.text_width(&date_str, FONT_TINY);
                     let date_x = (width as i32 - date_width) / 2;
                     layout.push(Widget {
-                        id: "date",
+                        id: "date".into(),
                         rect: Rect {
                             x: date_x,
                             y,
@@ -415,7 +415,7 @@ impl ArcsFace {
                 large_radius,
             );
             layout.push(Widget {
-                id: "cpu_label",
+                id: "cpu_label".into(),
                 rect: Rect {
                     x: center_x - 10,
                     y: cpu_cy - 6,
@@ -435,7 +435,7 @@ impl ArcsFace {
             let cpu_text = format!("{:.0}%", data.cpu_percent);
             let cpu_w = canvas.text_width(&cpu_text, FONT_SMALL);
             layout.push(Widget {
-                id: "cpu_val",
+                id: "cpu_val".into(),
                 rect: Rect {
                     x: center_x - cpu_w / 2,
                     y: cpu_cy + 4,
@@ -471,7 +471,7 @@ impl ArcsFace {
                 large_radius,
             );
             layout.push(Widget {
-                id: "ram_label",
+                id: "ram_label".into(),
                 rect: Rect {
                     x: center_x - 12,
                     y: ram_cy - 6,
@@ -491,7 +491,7 @@ impl ArcsFace {
             let ram_text = format!("{:.0}%", data.ram_percent);
             let ram_w = canvas.text_width(&ram_text, FONT_SMALL);
             layout.push(Widget {
-                id: "ram_val",
+                id: "ram_val".into(),
                 rect: Rect {
                     x: center_x - ram_w / 2,
                     y: ram_cy + 4,
@@ -534,7 +534,7 @@ impl ArcsFace {
                 let disk_r_text = format_rate_short(data.disk_read_rate);
                 let disk_r_w = canvas.text_width(&disk_r_text, FONT_TINY);
                 layout.push(Widget {
-                    id: "disk_r_val",
+                    id: "disk_r_val".into(),
                     rect: Rect {
                         x: disk_r_cx - disk_r_w / 2,
                         y: disk_cy - 4,
@@ -552,7 +552,7 @@ impl ArcsFace {
                     },
                 });
                 layout.push(Widget {
-                    id: "disk_r_lbl",
+                    id: "disk_r_lbl".into(),
                     rect: Rect {
                         x: disk_r_cx - 3,
                         y: disk_cy + small_radius as i32 / 2,
@@ -589,7 +589,7 @@ impl ArcsFace {
                 let disk_w_text = format_rate_short(data.disk_write_rate);
                 let disk_w_w = canvas.text_width(&disk_w_text, FONT_TINY);
                 layout.push(Widget {
-                    id: "disk_w_val",
+                    id: "disk_w_val".into(),
                     rect: Rect {
                         x: disk_w_cx - disk_w_w / 2,
                         y: disk_cy - 4,
@@ -607,7 +607,7 @@ impl ArcsFace {
                     },
                 });
                 layout.push(Widget {
-                    id: "disk_w_lbl",
+                    id: "disk_w_lbl".into(),
                     rect: Rect {
                         x: disk_w_cx - 4,
                         y: disk_cy + small_radius as i32 / 2,
@@ -649,7 +649,7 @@ impl ArcsFace {
                 let net_rx_text = format_rate_short(data.net_rx_rate);
                 let net_rx_w = canvas.text_width(&net_rx_text, FONT_TINY);
                 layout.push(Widget {
-                    id: "net_rx_val",
+                    id: "net_rx_val".into(),
                     rect: Rect {
                         x: net_rx_cx - net_rx_w / 2,
                         y: net_cy - 4,
@@ -667,7 +667,7 @@ impl ArcsFace {
                     },
                 });
                 layout.push(Widget {
-                    id: "net_rx_lbl",
+                    id: "net_rx_lbl".into(),
                     rect: Rect {
                         x: net_rx_cx - 4,
                         y: net_cy + small_radius as i32 / 2,
@@ -704,7 +704,7 @@ impl ArcsFace {
                 let net_tx_text = format_rate_short(data.net_tx_rate);
                 let net_tx_w = canvas.text_width(&net_tx_text, FONT_TINY);
                 layout.push(Widget {
-                    id: "net_tx_val",
+                    id: "net_tx_val".into(),
                     rect: Rect {
                         x: net_tx_cx - net_tx_w / 2,
                         y: net_cy - 4,
@@ -722,7 +722,7 @@ impl ArcsFace {
                     },
                 });
                 layout.push(Widget {
-                    id: "net_tx_lbl",
+                    id: "net_tx_lbl".into(),
                     rect: Rect {
                         x: net_tx_cx - 4,
                         y: net_cy + small_radius as i32 / 2,
@@ -748,7 +748,7 @@ impl ArcsFace {
             let host_width = canvas.text_width(&data.hostname, FONT_TINY);
             let host_x = (width as i32 - host_width) / 2;
             layout.push(Widget {
-                id: "hostname",
+                id: "hostname".into(),
                 rect: Rect {
                     x: host_x,
                     y: bottom_y,
@@ -769,7 +769,7 @@ impl ArcsFace {
             // Uptime on its own line
             let uptime_text = format!("Up: {}", data.uptime);
             layout.push(Widget {
-                id: "uptime",
+                id: "uptime".into(),
                 rect: Rect {
                     x: margin,
                     y: bottom_y + 12,
@@ -791,7 +791,7 @@ impl ArcsFace {
             if is_on(complication_names::IP_ADDRESS) {
                 if let Some(ref ip) = data.display_ip {
                     layout.push(Widget {
-                        id: "ip_addr",
+                        id: "ip_addr".into(),
                         rect: Rect {
                             x: margin,
                             y: bottom_y + 24,
@@ -841,7 +841,7 @@ impl ArcsFace {
                     {
                         let (id, content) = mini_clock_draw_to_widget(draw, i);
                         layout.push(Widget {
-                            id,
+                            id: id.into(),
                             rect: Rect {
                                 x: clock_cx - clock_radius as i32,
                                 y: clock_cy - clock_radius as i32,
@@ -856,7 +856,7 @@ impl ArcsFace {
                 } else {
                     let time_str = data.format_time(time_format);
                     layout.push(Widget {
-                        id: "time",
+                        id: "time".into(),
                         rect: Rect {
                             x: margin,
                             y: top_y,
@@ -879,7 +879,7 @@ impl ArcsFace {
             // Hostname at top right (always shown)
             let host_width = canvas.text_width(&data.hostname, FONT_SMALL);
             layout.push(Widget {
-                id: "hostname",
+                id: "hostname".into(),
                 rect: Rect {
                     x: width as i32 - margin - host_width,
                     y: top_y,
@@ -902,7 +902,7 @@ impl ArcsFace {
                 if let Some(date_str) = data.format_date(date_format) {
                     let date_width = canvas.text_width(&date_str, FONT_TINY);
                     layout.push(Widget {
-                        id: "date",
+                        id: "date".into(),
                         rect: Rect {
                             x: width as i32 - margin - date_width,
                             y: top_y + 14,
@@ -941,7 +941,7 @@ impl ArcsFace {
                 gauge_radius,
             );
             layout.push(Widget {
-                id: "cpu_label",
+                id: "cpu_label".into(),
                 rect: Rect {
                     x: cpu_cx - 10,
                     y: gauge_y - 8,
@@ -961,7 +961,7 @@ impl ArcsFace {
             let cpu_text = format!("{:.0}%", data.cpu_percent);
             let cpu_w = canvas.text_width(&cpu_text, FONT_NORMAL);
             layout.push(Widget {
-                id: "cpu_val",
+                id: "cpu_val".into(),
                 rect: Rect {
                     x: cpu_cx - cpu_w / 2,
                     y: gauge_y + 2,
@@ -996,7 +996,7 @@ impl ArcsFace {
                 gauge_radius,
             );
             layout.push(Widget {
-                id: "ram_label",
+                id: "ram_label".into(),
                 rect: Rect {
                     x: ram_cx - 12,
                     y: gauge_y - 8,
@@ -1016,7 +1016,7 @@ impl ArcsFace {
             let ram_text = format!("{:.0}%", data.ram_percent);
             let ram_w = canvas.text_width(&ram_text, FONT_NORMAL);
             layout.push(Widget {
-                id: "ram_val",
+                id: "ram_val".into(),
                 rect: Rect {
                     x: ram_cx - ram_w / 2,
                     y: gauge_y + 2,
@@ -1060,7 +1060,7 @@ impl ArcsFace {
                 let disk_r_text = format_rate_short(data.disk_read_rate);
                 let disk_r_w = canvas.text_width(&disk_r_text, FONT_TINY);
                 layout.push(Widget {
-                    id: "disk_r_val",
+                    id: "disk_r_val".into(),
                     rect: Rect {
                         x: disk_r_cx - disk_r_w / 2,
                         y: disk_cy - 5,
@@ -1079,7 +1079,7 @@ impl ArcsFace {
                 });
                 // Letter in bottom open space
                 layout.push(Widget {
-                    id: "disk_r_lbl",
+                    id: "disk_r_lbl".into(),
                     rect: Rect {
                         x: disk_r_cx - 3,
                         y: disk_cy + small_radius as i32 / 2,
@@ -1117,7 +1117,7 @@ impl ArcsFace {
                 let disk_w_text = format_rate_short(data.disk_write_rate);
                 let disk_w_w = canvas.text_width(&disk_w_text, FONT_TINY);
                 layout.push(Widget {
-                    id: "disk_w_val",
+                    id: "disk_w_val".into(),
                     rect: Rect {
                         x: disk_w_cx - disk_w_w / 2,
                         y: disk_cy - 5,
@@ -1136,7 +1136,7 @@ impl ArcsFace {
                 });
                 // Letter in bottom open space
                 layout.push(Widget {
-                    id: "disk_w_lbl",
+                    id: "disk_w_lbl".into(),
                     rect: Rect {
                         x: disk_w_cx - 4,
                         y: disk_cy + small_radius as i32 / 2,
@@ -1177,7 +1177,7 @@ impl ArcsFace {
                 let net_rx_text = format_rate_short(data.net_rx_rate);
                 let net_rx_w = canvas.text_width(&net_rx_text, FONT_TINY);
                 layout.push(Widget {
-                    id: "net_rx_val",
+                    id: "net_rx_val".into(),
                     rect: Rect {
                         x: disk_r_cx - net_rx_w / 2,
                         y: net_cy - 5,
@@ -1196,7 +1196,7 @@ impl ArcsFace {
                 });
                 // Arrow in bottom open space
                 layout.push(Widget {
-                    id: "net_rx_lbl",
+                    id: "net_rx_lbl".into(),
                     rect: Rect {
                         x: disk_r_cx - 4,
                         y: net_cy + small_radius as i32 / 2,
@@ -1234,7 +1234,7 @@ impl ArcsFace {
                 let net_tx_text = format_rate_short(data.net_tx_rate);
                 let net_tx_w = canvas.text_width(&net_tx_text, FONT_TINY);
                 layout.push(Widget {
-                    id: "net_tx_val",
+                    id: "net_tx_val".into(),
                     rect: Rect {
                         x: net_w_cx - net_tx_w / 2,
                         y: net_cy - 5,
@@ -1253,7 +1253,7 @@ impl ArcsFace {
                 });
                 // Arrow in bottom open space
                 layout.push(Widget {
-                    id: "net_tx_lbl",
+                    id: "net_tx_lbl".into(),
                     rect: Rect {
                         x: net_w_cx - 4,
                         y: net_cy + small_radius as i32 / 2,
@@ -1276,7 +1276,7 @@ impl ArcsFace {
             let bottom_y = height as i32 - margin - 14;
             let uptime_text = format!("Up: {}", data.uptime);
             layout.push(Widget {
-                id: "uptime",
+                id: "uptime".into(),
                 rect: Rect {
                     x: margin,
                     y: bottom_y,
@@ -1300,7 +1300,7 @@ impl ArcsFace {
                     let ip_text = format!("IP: {}", ip);
                     let ip_width = canvas.text_width(&ip_text, FONT_TINY);
                     layout.push(Widget {
-                        id: "ip_addr",
+                        id: "ip_addr".into(),
                         rect: Rect {
                             x: width as i32 - margin - ip_width,
                             y: bottom_y,

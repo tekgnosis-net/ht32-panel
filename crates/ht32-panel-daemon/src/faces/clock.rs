@@ -281,7 +281,7 @@ impl ClockFace {
         let text_width = canvas.text_width(text, font_size);
         let x = (width as i32 - text_width) / 2;
         layout.push(Widget {
-            id,
+            id: id.into(),
             rect: Rect {
                 x,
                 y,
@@ -400,7 +400,7 @@ impl ClockFace {
             let text_width = canvas.text_width_scaled(&time_str, effective_font_size, x_scale);
             let x = (width as i32 - text_width) / 2;
             layout.push(Widget {
-                id: "time",
+                id: "time".into(),
                 rect: Rect {
                     x,
                     y,
@@ -497,7 +497,7 @@ impl ClockFace {
         {
             let (id, content) = Self::analog_draw_to_widget(draw, i);
             layout.push(Widget {
-                id,
+                id: id.into(),
                 rect: Rect {
                     x: cx - radius as i32,
                     y: cy - radius as i32,

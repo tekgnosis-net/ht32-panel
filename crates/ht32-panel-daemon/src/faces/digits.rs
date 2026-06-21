@@ -65,7 +65,7 @@ impl DigitsFace {
     /// Pushes a divider Bar widget (100%-filled = solid fill_rect, byte-identical).
     fn push_divider(layout: &mut Layout, y: i32, width: u32, margin: i32, color: u32) {
         layout.push(Widget {
-            id: "divider",
+            id: "divider".into(),
             rect: Rect {
                 x: margin,
                 y,
@@ -130,7 +130,7 @@ impl DigitsFace {
             let host_width = canvas.text_width(&data.hostname, FONT_MEDIUM);
             let host_x = (width as i32 - host_width) / 2;
             layout.push(Widget {
-                id: "hostname",
+                id: "hostname".into(),
                 rect: Rect {
                     x: host_x,
                     y,
@@ -169,7 +169,7 @@ impl DigitsFace {
                     {
                         let (id, content) = mini_clock_draw_to_widget(draw, i);
                         layout.push(Widget {
-                            id,
+                            id: id.into(),
                             rect: Rect {
                                 x: clock_cx - clock_radius as i32,
                                 y: clock_cy - clock_radius as i32,
@@ -187,7 +187,7 @@ impl DigitsFace {
                     let time_width = canvas.text_width(&time_str, FONT_TIME);
                     let time_x = (width as i32 - time_width) / 2;
                     layout.push(Widget {
-                        id: "time",
+                        id: "time".into(),
                         rect: Rect {
                             x: time_x,
                             y,
@@ -214,7 +214,7 @@ impl DigitsFace {
                     let date_width = canvas.text_width(&date_str, FONT_MEDIUM);
                     let date_x = (width as i32 - date_width) / 2;
                     layout.push(Widget {
-                        id: "date",
+                        id: "date".into(),
                         rect: Rect {
                             x: date_x,
                             y,
@@ -239,7 +239,7 @@ impl DigitsFace {
             Self::push_divider(&mut layout, y, width, margin, colors.divider);
             y += 6;
             layout.push(Widget {
-                id: "cpu_label",
+                id: "cpu_label".into(),
                 rect: Rect {
                     x: margin,
                     y,
@@ -259,7 +259,7 @@ impl DigitsFace {
             let cpu_val = format!("{:.0}%", data.cpu_percent);
             let cpu_val_w = canvas.text_width(&cpu_val, FONT_TIME);
             layout.push(Widget {
-                id: "cpu_val",
+                id: "cpu_val".into(),
                 rect: Rect {
                     x: width as i32 - margin - cpu_val_w,
                     y: y - 4,
@@ -282,7 +282,7 @@ impl DigitsFace {
             Self::push_divider(&mut layout, y, width, margin, colors.divider);
             y += 6;
             layout.push(Widget {
-                id: "ram_label",
+                id: "ram_label".into(),
                 rect: Rect {
                     x: margin,
                     y,
@@ -302,7 +302,7 @@ impl DigitsFace {
             let ram_val = format!("{:.0}%", data.ram_percent);
             let ram_val_w = canvas.text_width(&ram_val, FONT_TIME);
             layout.push(Widget {
-                id: "ram_val",
+                id: "ram_val".into(),
                 rect: Rect {
                     x: width as i32 - margin - ram_val_w,
                     y: y - 4,
@@ -329,7 +329,7 @@ impl DigitsFace {
                 let disk_w = SystemData::format_rate_compact(data.disk_write_rate);
                 // DSK R label + value
                 layout.push(Widget {
-                    id: "dsk_r_label",
+                    id: "dsk_r_label".into(),
                     rect: Rect {
                         x: margin,
                         y,
@@ -347,7 +347,7 @@ impl DigitsFace {
                     },
                 });
                 layout.push(Widget {
-                    id: "dsk_r_val",
+                    id: "dsk_r_val".into(),
                     rect: Rect {
                         x: margin,
                         y: y + 10,
@@ -367,7 +367,7 @@ impl DigitsFace {
                 // DSK W label + value
                 let dsk_w_x = margin + col_width + margin;
                 layout.push(Widget {
-                    id: "dsk_w_label",
+                    id: "dsk_w_label".into(),
                     rect: Rect {
                         x: dsk_w_x,
                         y,
@@ -385,7 +385,7 @@ impl DigitsFace {
                     },
                 });
                 layout.push(Widget {
-                    id: "dsk_w_val",
+                    id: "dsk_w_val".into(),
                     rect: Rect {
                         x: dsk_w_x,
                         y: y + 10,
@@ -413,7 +413,7 @@ impl DigitsFace {
                 let net_tx = SystemData::format_rate_compact(data.net_tx_rate);
                 // NET ↓ label + value
                 layout.push(Widget {
-                    id: "net_rx_label",
+                    id: "net_rx_label".into(),
                     rect: Rect {
                         x: margin,
                         y,
@@ -431,7 +431,7 @@ impl DigitsFace {
                     },
                 });
                 layout.push(Widget {
-                    id: "net_rx_val",
+                    id: "net_rx_val".into(),
                     rect: Rect {
                         x: margin,
                         y: y + 10,
@@ -451,7 +451,7 @@ impl DigitsFace {
                 // NET ↑ label + value
                 let net_tx_x = margin + col_width + margin;
                 layout.push(Widget {
-                    id: "net_tx_label",
+                    id: "net_tx_label".into(),
                     rect: Rect {
                         x: net_tx_x,
                         y,
@@ -469,7 +469,7 @@ impl DigitsFace {
                     },
                 });
                 layout.push(Widget {
-                    id: "net_tx_val",
+                    id: "net_tx_val".into(),
                     rect: Rect {
                         x: net_tx_x,
                         y: y + 10,
@@ -496,7 +496,7 @@ impl DigitsFace {
             // Uptime (always shown)
             let uptime_str = format!("UP {}", data.uptime);
             layout.push(Widget {
-                id: "uptime",
+                id: "uptime".into(),
                 rect: Rect {
                     x: margin,
                     y,
@@ -519,7 +519,7 @@ impl DigitsFace {
             if is_on(complication_names::IP_ADDRESS) {
                 if let Some(ref ip) = data.display_ip {
                     layout.push(Widget {
-                        id: "ip_label",
+                        id: "ip_label".into(),
                         rect: Rect {
                             x: margin,
                             y,
@@ -538,7 +538,7 @@ impl DigitsFace {
                     });
                     y += canvas.line_height(FONT_SMALL);
                     layout.push(Widget {
-                        id: "ip_addr",
+                        id: "ip_addr".into(),
                         rect: Rect {
                             x: margin,
                             y,
@@ -563,7 +563,7 @@ impl DigitsFace {
 
             // Row 1: Hostname on left, Time on right
             layout.push(Widget {
-                id: "hostname",
+                id: "hostname".into(),
                 rect: Rect {
                     x: margin,
                     y,
@@ -599,7 +599,7 @@ impl DigitsFace {
                     {
                         let (id, content) = mini_clock_draw_to_widget(draw, i);
                         layout.push(Widget {
-                            id,
+                            id: id.into(),
                             rect: Rect {
                                 x: clock_cx - clock_radius as i32,
                                 y: clock_cy - clock_radius as i32,
@@ -616,7 +616,7 @@ impl DigitsFace {
                     let time_width = canvas.text_width(&time_str, FONT_LARGE);
                     let time_x = width as i32 - margin - time_width;
                     layout.push(Widget {
-                        id: "time",
+                        id: "time".into(),
                         rect: Rect {
                             x: time_x,
                             y,
@@ -640,7 +640,7 @@ impl DigitsFace {
             // Row 2: Uptime on left, Date on right (below time)
             let uptime_text = format!("Up: {}", data.uptime);
             layout.push(Widget {
-                id: "uptime",
+                id: "uptime".into(),
                 rect: Rect {
                     x: margin,
                     y,
@@ -662,7 +662,7 @@ impl DigitsFace {
                     let date_width = canvas.text_width(&date_str, FONT_SMALL);
                     let date_x = width as i32 - margin - date_width;
                     layout.push(Widget {
-                        id: "date",
+                        id: "date".into(),
                         rect: Rect {
                             x: date_x,
                             y,
@@ -688,7 +688,7 @@ impl DigitsFace {
                 if let Some(ref ip) = data.display_ip {
                     let ip_text = format!("IP: {}", ip);
                     layout.push(Widget {
-                        id: "ip_addr",
+                        id: "ip_addr".into(),
                         rect: Rect {
                             x: margin,
                             y,
@@ -715,7 +715,7 @@ impl DigitsFace {
             // Row 1: CPU (base), RAM (base), Temp (complication) - medium text
             // CPU label + value (draw_segment_value_medium inlined)
             layout.push(Widget {
-                id: "cpu_label",
+                id: "cpu_label".into(),
                 rect: Rect {
                     x: margin,
                     y,
@@ -734,7 +734,7 @@ impl DigitsFace {
             });
             let cpu_val = format!("{:.0}%", data.cpu_percent);
             layout.push(Widget {
-                id: "cpu_val",
+                id: "cpu_val".into(),
                 rect: Rect {
                     x: margin,
                     y: y + 12,
@@ -754,7 +754,7 @@ impl DigitsFace {
             // RAM label + value
             let ram_x = margin + col_width + margin;
             layout.push(Widget {
-                id: "ram_label",
+                id: "ram_label".into(),
                 rect: Rect {
                     x: ram_x,
                     y,
@@ -773,7 +773,7 @@ impl DigitsFace {
             });
             let ram_val = format!("{:.0}%", data.ram_percent);
             layout.push(Widget {
-                id: "ram_val",
+                id: "ram_val".into(),
                 rect: Rect {
                     x: ram_x,
                     y: y + 12,
@@ -795,7 +795,7 @@ impl DigitsFace {
                 if let Some(temp) = data.cpu_temp {
                     let temp_x = margin + (col_width + margin) * 2;
                     layout.push(Widget {
-                        id: "temp_label",
+                        id: "temp_label".into(),
                         rect: Rect {
                             x: temp_x,
                             y,
@@ -814,7 +814,7 @@ impl DigitsFace {
                     });
                     let temp_val = format!("{:.0}°", temp);
                     layout.push(Widget {
-                        id: "temp_val",
+                        id: "temp_val".into(),
                         rect: Rect {
                             x: temp_x,
                             y: y + 12,
@@ -844,7 +844,7 @@ impl DigitsFace {
                 let disk_w = SystemData::format_rate_compact(data.disk_write_rate);
                 // DSK R label + value (draw_segment_value inlined)
                 layout.push(Widget {
-                    id: "dsk_r_label",
+                    id: "dsk_r_label".into(),
                     rect: Rect {
                         x: margin,
                         y,
@@ -862,7 +862,7 @@ impl DigitsFace {
                     },
                 });
                 layout.push(Widget {
-                    id: "dsk_r_val",
+                    id: "dsk_r_val".into(),
                     rect: Rect {
                         x: margin,
                         y: y + 10,
@@ -882,7 +882,7 @@ impl DigitsFace {
                 // DSK W label + value
                 let dsk_w_x = margin + col_width + margin;
                 layout.push(Widget {
-                    id: "dsk_w_label",
+                    id: "dsk_w_label".into(),
                     rect: Rect {
                         x: dsk_w_x,
                         y,
@@ -900,7 +900,7 @@ impl DigitsFace {
                     },
                 });
                 layout.push(Widget {
-                    id: "dsk_w_val",
+                    id: "dsk_w_val".into(),
                     rect: Rect {
                         x: dsk_w_x,
                         y: y + 10,
@@ -924,7 +924,7 @@ impl DigitsFace {
                 // NET ↓ label + value
                 let net_rx_x = margin + (col_width + margin) * 2;
                 layout.push(Widget {
-                    id: "net_rx_label",
+                    id: "net_rx_label".into(),
                     rect: Rect {
                         x: net_rx_x,
                         y,
@@ -942,7 +942,7 @@ impl DigitsFace {
                     },
                 });
                 layout.push(Widget {
-                    id: "net_rx_val",
+                    id: "net_rx_val".into(),
                     rect: Rect {
                         x: net_rx_x,
                         y: y + 10,
@@ -962,7 +962,7 @@ impl DigitsFace {
                 // NET ↑ label + value
                 let net_tx_x = margin + (col_width + margin) * 3;
                 layout.push(Widget {
-                    id: "net_tx_label",
+                    id: "net_tx_label".into(),
                     rect: Rect {
                         x: net_tx_x,
                         y,
@@ -980,7 +980,7 @@ impl DigitsFace {
                     },
                 });
                 layout.push(Widget {
-                    id: "net_tx_val",
+                    id: "net_tx_val".into(),
                     rect: Rect {
                         x: net_tx_x,
                         y: y + 10,
