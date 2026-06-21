@@ -13,6 +13,7 @@ use std::sync::{Mutex, RwLock};
 use tracing::{debug, error, info, warn};
 
 use crate::config::Config;
+use crate::faces::template::spec::TemplateSpec;
 use crate::faces::{self, EnabledComplications, Face, Theme};
 use crate::lcd_health::{LcdHealth, WriteAction};
 use crate::rendering::Canvas;
@@ -20,6 +21,59 @@ use crate::sensors::{
     data::{IpDisplayPreference, SystemData},
     CpuSensor, DiskSensor, MemorySensor, NetworkSensor, Sensor, SystemInfo, TemperatureSensor,
 };
+
+// ── Template CRUD free functions ────────────────────────────────────────────
+
+/// Validates a template name (single gate): non-empty, `[A-Za-z0-9_-]+`.
+fn valid_template_name(name: &str) -> bool {
+    !name.is_empty()
+        && name
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_')
+}
+
+fn template_path(state_dir: &std::path::Path, name: &str) -> std::path::PathBuf {
+    state_dir.join("templates").join(format!("{name}.json"))
+}
+
+/// Writes `spec` to `<state_dir>/templates/<spec.name>.json` (create or overwrite).
+fn save_template_at(state_dir: &std::path::Path, spec: &TemplateSpec) -> anyhow::Result<()> {
+    if !valid_template_name(&spec.name) {
+        anyhow::bail!("invalid template name {:?}", spec.name);
+    }
+    let dir = state_dir.join("templates");
+    std::fs::create_dir_all(&dir)?;
+    let json = serde_json::to_string_pretty(spec)?;
+    std::fs::write(template_path(state_dir, &spec.name), json)?;
+    Ok(())
+}
+
+/// Deletes a template file. Refuses if `name` is the currently active face.
+fn delete_template_at(
+    state_dir: &std::path::Path,
+    name: &str,
+    active_face: &str,
+) -> anyhow::Result<()> {
+    if !valid_template_name(name) {
+        anyhow::bail!("invalid template name {:?}", name);
+    }
+    if name == active_face {
+        anyhow::bail!("cannot delete the active template '{name}'; switch face first");
+    }
+    std::fs::remove_file(template_path(state_dir, name))?;
+    Ok(())
+}
+
+/// Loads `src`, rewrites its `name` to `dst`, writes `<dst>.json`.
+fn clone_template_at(state_dir: &std::path::Path, src: &str, dst: &str) -> anyhow::Result<()> {
+    if !valid_template_name(dst) {
+        anyhow::bail!("invalid template name {:?}", dst);
+    }
+    let mut spec = crate::faces::load_template(state_dir, src)
+        .ok_or_else(|| anyhow::anyhow!("source template '{src}' not found"))?;
+    spec.name = dst.to_string();
+    save_template_at(state_dir, &spec)
+}
 
 /// Display settings persisted to state directory.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -1113,5 +1167,94 @@ impl AppState {
             self.face_name()
         );
         Ok(())
+    }
+
+    /// The daemon state directory (templates live under `<state_dir>/templates/`).
+    // Not yet called outside this crate; allow until Task 2 (HTTP) adds a caller.
+    #[allow(dead_code)]
+    pub fn state_dir(&self) -> &std::path::Path {
+        &self.state_dir
+    }
+
+    /// Saves (creates or overwrites) a template. Validates the name.
+    // Not yet called outside this crate; allow until Task 2 (HTTP) adds a caller.
+    #[allow(dead_code)]
+    pub fn save_template(&self, spec: &TemplateSpec) -> anyhow::Result<()> {
+        save_template_at(&self.state_dir, spec)
+    }
+
+    /// Deletes a template. Refuses to delete the active face.
+    // Not yet called outside this crate; allow until Task 2 (HTTP) adds a caller.
+    #[allow(dead_code)]
+    pub fn delete_template(&self, name: &str) -> anyhow::Result<()> {
+        delete_template_at(&self.state_dir, name, &self.face_name())
+    }
+
+    /// Duplicates `src` under `dst`.
+    // Not yet called outside this crate; allow until Task 2 (HTTP) adds a caller.
+    #[allow(dead_code)]
+    pub fn clone_template(&self, src: &str, dst: &str) -> anyhow::Result<()> {
+        clone_template_at(&self.state_dir, src, dst)
+    }
+
+    /// Lists saved template names.
+    // Not yet called outside this crate; allow until Task 2 (HTTP) adds a caller.
+    #[allow(dead_code)]
+    pub fn template_names(&self) -> Vec<String> {
+        crate::faces::list_templates(&self.state_dir)
+    }
+
+    /// Loads a template spec for editing.
+    // Not yet called outside this crate; allow until Task 2 (HTTP) adds a caller.
+    #[allow(dead_code)]
+    pub fn load_template_spec(&self, name: &str) -> Option<TemplateSpec> {
+        crate::faces::load_template(&self.state_dir, name)
+    }
+}
+
+#[cfg(test)]
+mod template_crud_tests {
+    use super::*;
+    use tempfile::tempdir;
+
+    fn spec(name: &str) -> TemplateSpec {
+        TemplateSpec {
+            name: name.to_string(),
+            orientation: None,
+            theme: None,
+            widgets: vec![],
+        }
+    }
+
+    #[test]
+    fn save_then_load_round_trips() {
+        let dir = tempdir().unwrap();
+        save_template_at(dir.path(), &spec("my_face")).unwrap();
+        let loaded = crate::faces::load_template(dir.path(), "my_face").unwrap();
+        assert_eq!(loaded, spec("my_face"));
+    }
+
+    #[test]
+    fn save_rejects_bad_name() {
+        let dir = tempdir().unwrap();
+        assert!(save_template_at(dir.path(), &spec("../evil")).is_err());
+        assert!(save_template_at(dir.path(), &spec("")).is_err());
+    }
+
+    #[test]
+    fn delete_refuses_active() {
+        let dir = tempdir().unwrap();
+        save_template_at(dir.path(), &spec("live")).unwrap();
+        assert!(delete_template_at(dir.path(), "live", "live").is_err()); // active == name
+        assert!(delete_template_at(dir.path(), "live", "other").is_ok());
+    }
+
+    #[test]
+    fn clone_copies_spec_under_new_name() {
+        let dir = tempdir().unwrap();
+        save_template_at(dir.path(), &spec("base")).unwrap();
+        clone_template_at(dir.path(), "base", "copy").unwrap();
+        let copy = crate::faces::load_template(dir.path(), "copy").unwrap();
+        assert_eq!(copy.name, "copy"); // name field rewritten to match the file
     }
 }
