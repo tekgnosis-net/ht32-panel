@@ -12,6 +12,7 @@ use serde::Deserialize;
 
 use crate::dbus::DaemonSignals;
 use crate::faces::template::preview::preview_render;
+use crate::faces::template::schema::template_schema_json;
 use crate::faces::template::spec::TemplateSpec;
 use crate::web::WebState;
 
@@ -110,9 +111,15 @@ async fn preview(State(st): State<WebState>, Json(spec): Json<TemplateSpec>) -> 
     Json(serde_json::json!({ "png_base64": b64, "warnings": warnings })).into_response()
 }
 
-/// Router for the JSON API. Schema + preview routes are added by later tasks.
+/// GET /api/template-schema -> the dropdown vocabulary
+async fn schema() -> axum::Json<serde_json::Value> {
+    axum::Json(template_schema_json())
+}
+
+/// Router for the JSON API.
 pub fn api_router() -> Router<WebState> {
     Router::new()
+        .route("/api/template-schema", get(schema))
         .route("/api/templates", get(list).post(create))
         .route(
             "/api/templates/:name",

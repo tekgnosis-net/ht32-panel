@@ -12,6 +12,7 @@
 pub mod face;
 pub mod preview;
 pub mod resolve;
+pub mod schema;
 pub mod spec;
 
 pub use face::{list_templates, load_template, TemplateFace};
