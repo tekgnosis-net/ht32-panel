@@ -1,0 +1,16 @@
+:root { --bg:#11131a; --panel:#1a1d27; --line:#2a2f3d; --ink:#e6e9ef; --accent:#7aa2f7; }
+* { box-sizing: border-box; }
+body { margin:0; font-family:system-ui,sans-serif; background:var(--bg); color:var(--ink); }
+.editor { display:grid; grid-template-columns:160px 1fr 280px; grid-template-rows:48px 1fr;
+          grid-template-areas:"top top top" "palette canvas props"; height:100vh; }
+.topbar { grid-area:top; display:flex; align-items:center; gap:12px; padding:0 12px;
+          background:var(--panel); border-bottom:1px solid var(--line); }
+.palette { grid-area:palette; background:var(--panel); border-right:1px solid var(--line); padding:8px; }
+.canvaswrap { grid-area:canvas; display:flex; align-items:center; justify-content:center; gap:24px; }
+.props { grid-area:props; background:var(--panel); border-left:1px solid var(--line); padding:8px; overflow:auto; }
+.device { position:relative; background:#000; outline:1px solid var(--line); }
+.widget { position:absolute; overflow:hidden; outline:1px dashed transparent; }
+.widget.selected { outline:1px solid var(--accent); }
+.widget.warn { outline:2px solid #e0af68; }
+.palette button, .topbar button { background:#222838; color:var(--ink); border:1px solid var(--line);
+          border-radius:6px; padding:6px 10px; cursor:pointer; width:100%; margin-bottom:6px; }

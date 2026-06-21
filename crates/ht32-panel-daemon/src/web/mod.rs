@@ -1,6 +1,7 @@
 //! HTMX web UI module.
 
 pub mod api;
+pub mod editor;
 
 use askama::Template;
 use axum::{
@@ -168,6 +169,7 @@ pub fn create_router(state: Arc<AppState>, signal_tx: broadcast::Sender<DaemonSi
         .route("/complication-option", post(complication_option_set))
         .route("/preview", get(preview_get))
         .merge(api::api_router())
+        .merge(editor::editor_router())
         // State
         .with_state(web_state)
 }

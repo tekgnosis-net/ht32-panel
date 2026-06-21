@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>HT32 Template Editor</title>
+  <link rel="stylesheet" href="/editor/editor.css">
+  <!-- Alpine.js is vendored + embedded (no CDN, no SRI risk, works offline) -->
+  <script src="/editor/alpine.js" defer></script>
+</head>
+<body>
+  <div class="editor" x-data="editor()" x-init="init()">
+    <div class="topbar">
+      <strong>Template</strong>
+      <select x-model="name" @change="load()">
+        <option value="">— new —</option>
+        <template x-for="t in templates" :key="t"><option :value="t" x-text="t"></option></template>
+      </select>
+      <input x-model="name" placeholder="name" size="14">
+      <button @click="save()">Save</button>
+      <button @click="activate()">Activate</button>
+      <button @click="refreshTruth()">Refresh preview</button>
+      <span x-text="status"></span>
+    </div>
+
+    <div class="palette">
+      <template x-for="k in schema.kinds" :key="k">
+        <button @click="addWidget(k)" x-text="'+ ' + k"></button>
+      </template>
+    </div>
+
+    <div class="canvaswrap">
+      <div class="device" :style="deviceStyle()">
+        <template x-for="(w,i) in spec.widgets" :key="w.id">
+          <div class="widget" :class="{selected: i===sel}" @mousedown="select(i)"
+               :style="widgetStyle(w)" x-text="w.id"></div>
+        </template>
+      </div>
+      <img class="device" :src="truthSrc" :style="deviceStyle()" alt="true preview">
+    </div>
+
+    <div class="props" x-show="sel!==null">
+      <!-- property panel fields injected in Task 8 -->
+      <em x-show="sel===null">Select a widget</em>
+    </div>
+  </div>
+  <script type="module" src="/editor/editor.js"></script>
+</body>
+</html>
