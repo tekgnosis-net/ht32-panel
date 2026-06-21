@@ -69,8 +69,24 @@ impl Face for TemplateFace {
 
 /// Reads and parses `<state_dir>/templates/<name>.json`.
 ///
-/// Returns `None` on any I/O or parse error (error is logged).
+/// `name` is caller-supplied — it flows from `set_face`, which is reachable
+/// over the web server (`0.0.0.0:8686`) and D-Bus — so it is validated against
+/// a strict allowlist (ASCII alphanumerics plus `-` and `_`) *before* it is
+/// joined into a path. That allowlist admits no `.`, `/`, or `\`, so a name can
+/// never contain `..` or a path separator: the resolved path is always a direct
+/// child of `<state_dir>/templates/`. This closes the path-traversal vector
+/// (e.g. a face named `../../../../etc/passwd`).
+///
+/// Returns `None` on a rejected name, or any I/O or parse error (logged).
 pub fn load_template(state_dir: &Path, name: &str) -> Option<TemplateSpec> {
+    if name.is_empty()
+        || !name
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_')
+    {
+        warn!("Rejected template name {name:?} (allowed: [A-Za-z0-9_-])");
+        return None;
+    }
     let path = state_dir.join("templates").join(format!("{name}.json"));
     let json = match std::fs::read_to_string(&path) {
         Ok(s) => s,
@@ -261,6 +277,50 @@ mod tests {
 
         let result = load_template(state_dir, "bad");
         assert!(result.is_none(), "invalid JSON should return None");
+    }
+
+    /// A caller-supplied name must never escape `<state_dir>/templates/`.
+    /// `name` reaches this function from `set_face` (web + D-Bus), so a
+    /// traversal payload like `../secret` must be rejected by the allowlist
+    /// before it can resolve to a file outside the templates directory.
+    #[test]
+    fn load_template_rejects_unsafe_names() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let state_dir = dir.path();
+        std::fs::create_dir_all(state_dir.join("templates")).expect("create dir");
+
+        // Plant a real, parseable template one level ABOVE templates/ — the
+        // exact file a `../secret` traversal would reach if names weren't checked.
+        let spec = TemplateSpec {
+            name: "secret".to_string(),
+            orientation: None,
+            theme: None,
+            widgets: vec![],
+        };
+        std::fs::write(
+            state_dir.join("secret.json"),
+            serde_json::to_string(&spec).expect("serialize"),
+        )
+        .expect("write");
+
+        // Every unsafe shape must be rejected (None), never reaching the file.
+        for bad in ["../secret", "foo/bar", "a.b", "", "x\\y", ".."] {
+            assert!(
+                load_template(state_dir, bad).is_none(),
+                "unsafe name {bad:?} must be rejected"
+            );
+        }
+
+        // A name that genuinely lives in templates/ still loads.
+        std::fs::write(
+            state_dir.join("templates").join("ok_name.json"),
+            serde_json::to_string(&spec).expect("serialize"),
+        )
+        .expect("write");
+        assert!(
+            load_template(state_dir, "ok_name").is_some(),
+            "a valid allowlisted name must still load"
+        );
     }
 
     // ── list_templates ────────────────────────────────────────────────────────
