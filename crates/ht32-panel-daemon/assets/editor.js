@@ -26,6 +26,8 @@ window.editor = function () {
       this.schema = await (await fetch("/api/template-schema")).json();
       this.templates = await (await fetch("/api/templates")).json();
       this.dims = this.spec.orientation.startsWith("portrait") ? [170,320] : [320,170];
+      const q = new URLSearchParams(location.search).get("name");
+      if (q) { this.name = q; await this.load(); }
     },
 
     deviceStyle() {

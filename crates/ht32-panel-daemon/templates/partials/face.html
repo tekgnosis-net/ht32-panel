@@ -8,3 +8,26 @@
         <span class="htmx-indicator spinner"></span>
     </div>
 </form>
+
+{% if !templates.is_empty() %}
+<h2>Your templates</h2>
+{% for t in templates %}
+<div class="controls" style="margin-top:0.5rem;align-items:center;">
+    <button type="submit" form="face-form-{{ loop.index }}" name="face" value="{{ t }}"
+            class="btn{% if *t == current %} active{% endif %}">
+        {{ t }}
+    </button>
+    <a class="btn" href="/editor?name={{ t }}">Edit</a>
+    {% if *t != current %}
+    <form hx-post="/face/delete" hx-target="#face-controls" hx-swap="innerHTML"
+          hx-confirm="Delete template {{ t }}?">
+        <button class="btn" name="name" value="{{ t }}">Delete</button>
+    </form>
+    {% endif %}
+</div>
+<form id="face-form-{{ loop.index }}" hx-post="/face" hx-target="#face-controls" hx-swap="innerHTML"
+      style="display:none"></form>
+{% endfor %}
+{% else %}
+<p class="hint" style="margin-top:0.5rem;">No custom faces yet — <a href="/editor">open the Template Editor</a></p>
+{% endif %}

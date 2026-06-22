@@ -68,6 +68,7 @@ struct OrientationTemplate {
 struct FaceTemplate {
     current: String,
     faces: Vec<FaceOption>,
+    templates: Vec<String>,
 }
 
 /// LED controls partial template.
@@ -160,6 +161,7 @@ pub fn create_router(state: Arc<AppState>, signal_tx: broadcast::Sender<DaemonSi
         .route("/status", get(status))
         .route("/orientation", get(orientation_get).post(orientation_set))
         .route("/face", get(face_get).post(face_set))
+        .route("/face/delete", post(face_delete))
         .route("/led", get(led_get).post(led_set))
         .route("/theme", get(theme_get).post(theme_set))
         .route(
@@ -269,21 +271,19 @@ async fn orientation_set(
 
 /// GET /face - Face controls partial
 async fn face_get(State(state): State<WebState>) -> impl IntoResponse {
-    let current = state.app.face_name();
-    let faces: Vec<FaceOption> = available_faces()
-        .iter()
-        .map(|f| FaceOption {
-            id: f.id.to_string(),
-            display_name: f.display_name.to_string(),
-        })
-        .collect();
-    Html(FaceTemplate { current, faces }.render().unwrap())
+    render_face_partial(&state)
 }
 
 /// Form data for face.
 #[derive(Deserialize)]
 struct FaceForm {
     face: String,
+}
+
+/// Form data for template deletion.
+#[derive(Deserialize)]
+struct DeleteForm {
+    name: String,
 }
 
 /// POST /face - Set face
@@ -295,6 +295,24 @@ async fn face_set(State(state): State<WebState>, Form(form): Form<FaceForm>) -> 
         )
             .into_response();
     }
+    render_face_partial(&state).into_response()
+}
+
+/// POST /face/delete - Delete a saved template
+async fn face_delete(State(state): State<WebState>, Form(form): Form<DeleteForm>) -> Response {
+    if let Err(e) = state.app.delete_template(&form.name) {
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            format!("Failed to delete template: {}", e),
+        )
+            .into_response();
+    }
+    let _ = state.signal_tx.send(DaemonSignals::TemplatesChanged);
+    render_face_partial(&state).into_response()
+}
+
+/// Shared helper: build and render the face partial from current state.
+fn render_face_partial(state: &WebState) -> Html<String> {
     let current = state.app.face_name();
     let faces: Vec<FaceOption> = available_faces()
         .iter()
@@ -303,7 +321,16 @@ async fn face_set(State(state): State<WebState>, Form(form): Form<FaceForm>) -> 
             display_name: f.display_name.to_string(),
         })
         .collect();
-    Html(FaceTemplate { current, faces }.render().unwrap()).into_response()
+    let templates = state.app.template_names();
+    Html(
+        FaceTemplate {
+            current,
+            faces,
+            templates,
+        }
+        .render()
+        .unwrap(),
+    )
 }
 
 /// GET /led - LED controls partial

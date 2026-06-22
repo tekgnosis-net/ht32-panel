@@ -92,6 +92,10 @@
         htmx.trigger('#led-controls', 'load');
     });
 
+    evtSource.addEventListener('templates', function(e) {
+        htmx.trigger('#face-controls', 'load');
+    });
+
     evtSource.onerror = function() {
         // Reconnect after a delay if connection is lost
         setTimeout(function() {
