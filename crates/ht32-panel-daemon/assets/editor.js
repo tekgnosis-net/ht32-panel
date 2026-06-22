@@ -135,59 +135,72 @@ window.editor = function () {
 
     // ── Colour helpers ───────────────────────────────────────────────────────
 
+    // The currently-selected widget, or null. All property-panel bindings go
+    // through this so they are null-safe: Alpine re-evaluates a guarded subtree's
+    // child bindings one last time when `sel` flips to null (before x-if tears
+    // them down), so the expressions themselves MUST tolerate sel===null.
+    get cur() {
+      return this.sel === null ? null : (this.spec.widgets[this.sel] ?? null);
+    },
+
+    // ── Colour helpers (all null-safe via `cur`) ─────────────────────────────
+
     colorIsCustom(field) {
-      return typeof this.spec.widgets[this.sel][field] === "number";
+      return typeof this.cur?.[field] === "number";
     },
 
     colorHex(field) {
-      const v = this.spec.widgets[this.sel][field];
+      const v = this.cur?.[field];
       if (typeof v === "number") return "#" + v.toString(16).padStart(6, "0");
       return "#7aa2f7";
     },
 
     setColorSlot(field, v) {
+      if (!this.cur) return;
       if (v === "custom") {
-        const hex = this.colorHex(field);
-        this.spec.widgets[this.sel][field] = parseInt(hex.slice(1), 16);
+        this.cur[field] = parseInt(this.colorHex(field).slice(1), 16);
       } else {
-        this.spec.widgets[this.sel][field] = v;
+        this.cur[field] = v;
       }
       this.refreshTruth();
       this.renderAll();
     },
 
     setColorHex(field, hex) {
-      this.spec.widgets[this.sel][field] = parseInt(hex.slice(1), 16);
+      if (!this.cur) return;
+      this.cur[field] = parseInt(hex.slice(1), 16);
       this.refreshTruth();
       this.renderAll();
     },
 
     colorSelectVal(field) {
-      const v = this.spec.widgets[this.sel][field];
+      const v = this.cur?.[field];
+      if (v === undefined || v === null) return "";
       return typeof v === "number" ? "custom" : v;
     },
 
     // ── Text source helpers ──────────────────────────────────────────────────
 
     setTextSrc(newSrc) {
+      if (!this.cur) return;
       switch (newSrc) {
         case "hostname":
         case "uptime":
         case "ip":
         case "net_interface":
-          this.spec.widgets[this.sel].value = { src: newSrc };
+          this.cur.value = { src: newSrc };
           break;
         case "literal":
-          this.spec.widgets[this.sel].value = { src: "literal", fmt: "" };
+          this.cur.value = { src: "literal", fmt: "" };
           break;
         case "time":
-          this.spec.widgets[this.sel].value = { src: "time", fmt: "hhmm" };
+          this.cur.value = { src: "time", fmt: "hhmm" };
           break;
         case "date":
-          this.spec.widgets[this.sel].value = { src: "date", fmt: "iso" };
+          this.cur.value = { src: "date", fmt: "iso" };
           break;
         case "number":
-          this.spec.widgets[this.sel].value = { src: "number", fmt: { source: "cpu_percent", style: "percent" } };
+          this.cur.value = { src: "number", fmt: { source: "cpu_percent", style: "percent" } };
           break;
       }
       this.refreshTruth();

@@ -51,29 +51,30 @@
       </div>
     </div>
 
-    <!-- Part A: single x-if gate — no x-data, no x-show on binding wrapper.
-         All spec.widgets[sel].* bindings live inside this one template so they
-         only exist in the DOM when sel is a valid index. -->
+    <!-- Property panel. Gated by a single x-if, but bindings also go through the
+         null-safe `cur` getter (cur?.…) and guarded @input/@change handlers,
+         because Alpine re-evaluates a guarded subtree's child bindings one last
+         time when `sel` flips to null before x-if tears them down. -->
     <div class="props">
       <template x-if="sel!==null">
         <div>
-          <label>id <input x-model="spec.widgets[sel].id"></label>
-          <label>x <input type="number" x-model.number="spec.widgets[sel].rect.x" @input="refreshTruth(); renderAll()"></label>
-          <label>y <input type="number" x-model.number="spec.widgets[sel].rect.y" @input="refreshTruth(); renderAll()"></label>
-          <label>w <input type="number" x-model.number="spec.widgets[sel].rect.w" @input="refreshTruth(); renderAll()"></label>
-          <label>h <input type="number" x-model.number="spec.widgets[sel].rect.h" @input="refreshTruth(); renderAll()"></label>
+          <label>id <input :value="cur?.id" @input="if(cur) cur.id = $event.target.value"></label>
+          <label>x <input type="number" :value="cur?.rect.x" @input="if(cur){ cur.rect.x = +$event.target.value } refreshTruth(); renderAll()"></label>
+          <label>y <input type="number" :value="cur?.rect.y" @input="if(cur){ cur.rect.y = +$event.target.value } refreshTruth(); renderAll()"></label>
+          <label>w <input type="number" :value="cur?.rect.w" @input="if(cur){ cur.rect.w = +$event.target.value } refreshTruth(); renderAll()"></label>
+          <label>h <input type="number" :value="cur?.rect.h" @input="if(cur){ cur.rect.h = +$event.target.value } refreshTruth(); renderAll()"></label>
 
           <!-- bar / gauge: numeric source -->
-          <template x-if="['bar','gauge'].includes(spec.widgets[sel].kind)">
+          <template x-if="['bar','gauge'].includes(cur?.kind)">
             <label>source
-              <select x-model="spec.widgets[sel].value" @change="refreshTruth(); renderAll()">
-                <template x-for="s in schema.number_sources" :key="s"><option :value="s" x-text="s"></option></template>
+              <select @change="if(cur) cur.value = $event.target.value; refreshTruth(); renderAll()">
+                <template x-for="s in schema.number_sources" :key="s"><option :value="s" x-text="s" :selected="cur?.value === s"></option></template>
               </select>
             </label>
           </template>
 
           <!-- Part B: colour controls for bar (fill, bg) -->
-          <template x-if="spec.widgets[sel].kind==='bar'">
+          <template x-if="cur?.kind==='bar'">
             <div>
               <label>fill
                 <select @change="setColorSlot('fill', $event.target.value)">
@@ -97,7 +98,7 @@
           </template>
 
           <!-- Part B: colour controls for gauge (color, track) -->
-          <template x-if="spec.widgets[sel].kind==='gauge'">
+          <template x-if="cur?.kind==='gauge'">
             <div>
               <label>color
                 <select @change="setColorSlot('color', $event.target.value)">
@@ -121,7 +122,7 @@
           </template>
 
           <!-- Part B: colour controls for sparkline (color_a, color_b, bg) -->
-          <template x-if="spec.widgets[sel].kind==='sparkline'">
+          <template x-if="cur?.kind==='sparkline'">
             <div>
               <label>color a
                 <select @change="setColorSlot('color_a', $event.target.value)">
@@ -154,7 +155,7 @@
           </template>
 
           <!-- Part B: colour controls for clock (color) -->
-          <template x-if="spec.widgets[sel].kind==='clock'">
+          <template x-if="cur?.kind==='clock'">
             <label>color
               <select @change="setColorSlot('color', $event.target.value)">
                 <template x-for="s in schema.theme_slots" :key="s"><option :value="s" x-text="s" :selected="colorSelectVal('color') === s"></option></template>
@@ -167,50 +168,50 @@
           </template>
 
           <!-- Part C: text widget — source + fmt + colour -->
-          <template x-if="spec.widgets[sel].kind==='text'">
+          <template x-if="cur?.kind==='text'">
             <div>
               <label>text source
                 <select @change="setTextSrc($event.target.value)">
-                  <template x-for="s in schema.text_sources" :key="s"><option :value="s" x-text="s" :selected="spec.widgets[sel].value.src === s"></option></template>
+                  <template x-for="s in schema.text_sources" :key="s"><option :value="s" x-text="s" :selected="cur?.value?.src === s"></option></template>
                 </select>
               </label>
 
               <!-- literal: free-text input -->
-              <template x-if="spec.widgets[sel].value.src==='literal'">
+              <template x-if="cur?.value?.src==='literal'">
                 <label>text
-                  <input type="text" x-model="spec.widgets[sel].value.fmt" @input="refreshTruth(); renderAll()">
+                  <input type="text" :value="cur?.value?.fmt" @input="if(cur) cur.value.fmt = $event.target.value; refreshTruth(); renderAll()">
                 </label>
               </template>
 
               <!-- time: format dropdown -->
-              <template x-if="spec.widgets[sel].value.src==='time'">
+              <template x-if="cur?.value?.src==='time'">
                 <label>format
-                  <select x-model="spec.widgets[sel].value.fmt" @change="refreshTruth(); renderAll()">
-                    <template x-for="f in schema.time_fmts" :key="f"><option :value="f" x-text="f"></option></template>
+                  <select @change="if(cur) cur.value.fmt = $event.target.value; refreshTruth(); renderAll()">
+                    <template x-for="f in schema.time_fmts" :key="f"><option :value="f" x-text="f" :selected="cur?.value?.fmt === f"></option></template>
                   </select>
                 </label>
               </template>
 
               <!-- date: format dropdown -->
-              <template x-if="spec.widgets[sel].value.src==='date'">
+              <template x-if="cur?.value?.src==='date'">
                 <label>format
-                  <select x-model="spec.widgets[sel].value.fmt" @change="refreshTruth(); renderAll()">
-                    <template x-for="f in schema.date_fmts" :key="f"><option :value="f" x-text="f"></option></template>
+                  <select @change="if(cur) cur.value.fmt = $event.target.value; refreshTruth(); renderAll()">
+                    <template x-for="f in schema.date_fmts" :key="f"><option :value="f" x-text="f" :selected="cur?.value?.fmt === f"></option></template>
                   </select>
                 </label>
               </template>
 
               <!-- number: source + style dropdowns -->
-              <template x-if="spec.widgets[sel].value.src==='number'">
+              <template x-if="cur?.value?.src==='number'">
                 <div>
                   <label>data source
-                    <select x-model="spec.widgets[sel].value.fmt.source" @change="refreshTruth(); renderAll()">
-                      <template x-for="s in schema.number_sources" :key="s"><option :value="s" x-text="s"></option></template>
+                    <select @change="if(cur) cur.value.fmt.source = $event.target.value; refreshTruth(); renderAll()">
+                      <template x-for="s in schema.number_sources" :key="s"><option :value="s" x-text="s" :selected="cur?.value?.fmt?.source === s"></option></template>
                     </select>
                   </label>
                   <label>style
-                    <select x-model="spec.widgets[sel].value.fmt.style" @change="refreshTruth(); renderAll()">
-                      <template x-for="f in schema.number_fmts" :key="f"><option :value="f" x-text="f"></option></template>
+                    <select @change="if(cur) cur.value.fmt.style = $event.target.value; refreshTruth(); renderAll()">
+                      <template x-for="f in schema.number_fmts" :key="f"><option :value="f" x-text="f" :selected="cur?.value?.fmt?.style === f"></option></template>
                     </select>
                   </label>
                 </div>
