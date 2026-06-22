@@ -76,18 +76,18 @@
           <template x-if="spec.widgets[sel].kind==='bar'">
             <div>
               <label>fill
-                <select :value="colorSelectVal('fill')" @change="setColorSlot('fill', $event.target.value)">
-                  <template x-for="s in schema.theme_slots" :key="s"><option :value="s" x-text="s"></option></template>
-                  <option value="custom">custom…</option>
+                <select @change="setColorSlot('fill', $event.target.value)">
+                  <template x-for="s in schema.theme_slots" :key="s"><option :value="s" x-text="s" :selected="colorSelectVal('fill') === s"></option></template>
+                  <option value="custom" :selected="colorSelectVal('fill') === 'custom'">custom…</option>
                 </select>
                 <template x-if="colorIsCustom('fill')">
                   <input type="color" :value="colorHex('fill')" @input="setColorHex('fill', $event.target.value)">
                 </template>
               </label>
               <label>bg
-                <select :value="colorSelectVal('bg')" @change="setColorSlot('bg', $event.target.value)">
-                  <template x-for="s in schema.theme_slots" :key="s"><option :value="s" x-text="s"></option></template>
-                  <option value="custom">custom…</option>
+                <select @change="setColorSlot('bg', $event.target.value)">
+                  <template x-for="s in schema.theme_slots" :key="s"><option :value="s" x-text="s" :selected="colorSelectVal('bg') === s"></option></template>
+                  <option value="custom" :selected="colorSelectVal('bg') === 'custom'">custom…</option>
                 </select>
                 <template x-if="colorIsCustom('bg')">
                   <input type="color" :value="colorHex('bg')" @input="setColorHex('bg', $event.target.value)">
@@ -100,18 +100,18 @@
           <template x-if="spec.widgets[sel].kind==='gauge'">
             <div>
               <label>color
-                <select :value="colorSelectVal('color')" @change="setColorSlot('color', $event.target.value)">
-                  <template x-for="s in schema.theme_slots" :key="s"><option :value="s" x-text="s"></option></template>
-                  <option value="custom">custom…</option>
+                <select @change="setColorSlot('color', $event.target.value)">
+                  <template x-for="s in schema.theme_slots" :key="s"><option :value="s" x-text="s" :selected="colorSelectVal('color') === s"></option></template>
+                  <option value="custom" :selected="colorSelectVal('color') === 'custom'">custom…</option>
                 </select>
                 <template x-if="colorIsCustom('color')">
                   <input type="color" :value="colorHex('color')" @input="setColorHex('color', $event.target.value)">
                 </template>
               </label>
               <label>track
-                <select :value="colorSelectVal('track')" @change="setColorSlot('track', $event.target.value)">
-                  <template x-for="s in schema.theme_slots" :key="s"><option :value="s" x-text="s"></option></template>
-                  <option value="custom">custom…</option>
+                <select @change="setColorSlot('track', $event.target.value)">
+                  <template x-for="s in schema.theme_slots" :key="s"><option :value="s" x-text="s" :selected="colorSelectVal('track') === s"></option></template>
+                  <option value="custom" :selected="colorSelectVal('track') === 'custom'">custom…</option>
                 </select>
                 <template x-if="colorIsCustom('track')">
                   <input type="color" :value="colorHex('track')" @input="setColorHex('track', $event.target.value)">
@@ -124,27 +124,27 @@
           <template x-if="spec.widgets[sel].kind==='sparkline'">
             <div>
               <label>color a
-                <select :value="colorSelectVal('color_a')" @change="setColorSlot('color_a', $event.target.value)">
-                  <template x-for="s in schema.theme_slots" :key="s"><option :value="s" x-text="s"></option></template>
-                  <option value="custom">custom…</option>
+                <select @change="setColorSlot('color_a', $event.target.value)">
+                  <template x-for="s in schema.theme_slots" :key="s"><option :value="s" x-text="s" :selected="colorSelectVal('color_a') === s"></option></template>
+                  <option value="custom" :selected="colorSelectVal('color_a') === 'custom'">custom…</option>
                 </select>
                 <template x-if="colorIsCustom('color_a')">
                   <input type="color" :value="colorHex('color_a')" @input="setColorHex('color_a', $event.target.value)">
                 </template>
               </label>
               <label>color b
-                <select :value="colorSelectVal('color_b')" @change="setColorSlot('color_b', $event.target.value)">
-                  <template x-for="s in schema.theme_slots" :key="s"><option :value="s" x-text="s"></option></template>
-                  <option value="custom">custom…</option>
+                <select @change="setColorSlot('color_b', $event.target.value)">
+                  <template x-for="s in schema.theme_slots" :key="s"><option :value="s" x-text="s" :selected="colorSelectVal('color_b') === s"></option></template>
+                  <option value="custom" :selected="colorSelectVal('color_b') === 'custom'">custom…</option>
                 </select>
                 <template x-if="colorIsCustom('color_b')">
                   <input type="color" :value="colorHex('color_b')" @input="setColorHex('color_b', $event.target.value)">
                 </template>
               </label>
               <label>bg
-                <select :value="colorSelectVal('bg')" @change="setColorSlot('bg', $event.target.value)">
-                  <template x-for="s in schema.theme_slots" :key="s"><option :value="s" x-text="s"></option></template>
-                  <option value="custom">custom…</option>
+                <select @change="setColorSlot('bg', $event.target.value)">
+                  <template x-for="s in schema.theme_slots" :key="s"><option :value="s" x-text="s" :selected="colorSelectVal('bg') === s"></option></template>
+                  <option value="custom" :selected="colorSelectVal('bg') === 'custom'">custom…</option>
                 </select>
                 <template x-if="colorIsCustom('bg')">
                   <input type="color" :value="colorHex('bg')" @input="setColorHex('bg', $event.target.value)">
@@ -156,9 +156,9 @@
           <!-- Part B: colour controls for clock (color) -->
           <template x-if="spec.widgets[sel].kind==='clock'">
             <label>color
-              <select :value="colorSelectVal('color')" @change="setColorSlot('color', $event.target.value)">
-                <template x-for="s in schema.theme_slots" :key="s"><option :value="s" x-text="s"></option></template>
-                <option value="custom">custom…</option>
+              <select @change="setColorSlot('color', $event.target.value)">
+                <template x-for="s in schema.theme_slots" :key="s"><option :value="s" x-text="s" :selected="colorSelectVal('color') === s"></option></template>
+                <option value="custom" :selected="colorSelectVal('color') === 'custom'">custom…</option>
               </select>
               <template x-if="colorIsCustom('color')">
                 <input type="color" :value="colorHex('color')" @input="setColorHex('color', $event.target.value)">
@@ -170,8 +170,8 @@
           <template x-if="spec.widgets[sel].kind==='text'">
             <div>
               <label>text source
-                <select :value="spec.widgets[sel].value.src" @change="setTextSrc($event.target.value)">
-                  <template x-for="s in schema.text_sources" :key="s"><option :value="s" x-text="s"></option></template>
+                <select @change="setTextSrc($event.target.value)">
+                  <template x-for="s in schema.text_sources" :key="s"><option :value="s" x-text="s" :selected="spec.widgets[sel].value.src === s"></option></template>
                 </select>
               </label>
 
@@ -218,9 +218,9 @@
 
               <!-- Part B: colour for text widget -->
               <label>color
-                <select :value="colorSelectVal('color')" @change="setColorSlot('color', $event.target.value)">
-                  <template x-for="s in schema.theme_slots" :key="s"><option :value="s" x-text="s"></option></template>
-                  <option value="custom">custom…</option>
+                <select @change="setColorSlot('color', $event.target.value)">
+                  <template x-for="s in schema.theme_slots" :key="s"><option :value="s" x-text="s" :selected="colorSelectVal('color') === s"></option></template>
+                  <option value="custom" :selected="colorSelectVal('color') === 'custom'">custom…</option>
                 </select>
                 <template x-if="colorIsCustom('color')">
                   <input type="color" :value="colorHex('color')" @input="setColorHex('color', $event.target.value)">
