@@ -4,10 +4,11 @@
   <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
   <title>HT32 Template Editor</title>
   <link rel="stylesheet" href="/editor/editor.css">
-  <!-- editor.js MUST load before Alpine: it defines window.editor, which Alpine
-       evaluates when it auto-initializes and scans x-data="editor()". Both are
-       classic `defer` scripts, which execute in strict document order, so
-       editor.js (first) defines the component before alpine.js (second) starts. -->
+  <!-- Script order matters: widgets.js exposes window.renderWidget; editor.js
+       calls it and defines window.editor; Alpine.js scans x-data="editor()" last.
+       All three are classic `defer` scripts — deferred scripts execute in strict
+       document order, so each is ready before the next initialises. -->
+  <script src="/editor/widgets.js" defer></script>
   <script src="/editor/editor.js" defer></script>
   <!-- Alpine.js is vendored + embedded (no CDN, no SRI risk, works offline) -->
   <script src="/editor/alpine.js" defer></script>
@@ -37,7 +38,7 @@
       <div class="device" :style="deviceStyle()">
         <template x-for="(w,i) in spec.widgets" :key="w.id">
           <div class="widget" :class="{selected: i===sel}" @mousedown="select(i)"
-               :style="widgetStyle(w)" x-text="w.id"></div>
+               :style="widgetStyle(w)"></div>
         </template>
       </div>
       <img class="device" :src="truthSrc" :style="deviceStyle()" alt="true preview">
@@ -55,7 +56,7 @@
           <!-- bar/gauge numeric binding -->
           <template x-if="['bar','gauge'].includes(spec.widgets[sel].kind)">
             <label>source
-              <select x-model="spec.widgets[sel].value" @change="refreshTruth()">
+              <select x-model="spec.widgets[sel].value" @change="refreshTruth(); renderAll()">
                 <template x-for="s in schema.number_sources" :key="s"><option :value="s" x-text="s"></option></template>
               </select>
             </label>
@@ -64,13 +65,13 @@
           <!-- text source -->
           <template x-if="spec.widgets[sel].kind==='text'">
             <label>text source
-              <select x-model="spec.widgets[sel].value.src" @change="refreshTruth()">
+              <select x-model="spec.widgets[sel].value.src" @change="refreshTruth(); renderAll()">
                 <template x-for="s in schema.text_sources" :key="s"><option :value="s" x-text="s"></option></template>
               </select>
             </label>
           </template>
 
-          <button @click="spec.widgets.splice(sel,1); sel=null; refreshTruth()">Delete widget</button>
+          <button @click="spec.widgets.splice(sel,1); sel=null; refreshTruth(); renderAll()">Delete widget</button>
         </div>
       </template>
     </div>

@@ -37,11 +37,21 @@ window.editor = function () {
 
     select(i) { this.sel = i; },
 
+    renderAll() {
+      this.$nextTick(() => {
+        const els = document.querySelectorAll(".device .widget");
+        els.forEach((el, i) => {
+          if (this.spec.widgets[i]) window.renderWidget(el, this.spec.widgets[i]);
+        });
+      });
+    },
+
     addWidget(kind) {
       const id = kind + "_" + (this.spec.widgets.length + 1);
       this.spec.widgets.push({ id, rect:{x:8,y:8,w:80,h:20}, ...defaultContent(kind) });
       this.sel = this.spec.widgets.length - 1;
       this.refreshTruth();
+      this.renderAll();
     },
 
     async load() {
@@ -49,7 +59,7 @@ window.editor = function () {
       this.spec = await (await fetch(`/api/templates/${this.name}`)).json();
       if (!this.spec.orientation) this.spec.orientation = "portrait";
       this.dims = this.spec.orientation.startsWith("portrait") ? [170,320] : [320,170];
-      this.sel = null; this.refreshTruth();
+      this.sel = null; this.refreshTruth(); this.renderAll();
     },
 
     async save() {
