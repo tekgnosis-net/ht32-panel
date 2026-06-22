@@ -6,7 +6,7 @@ body { margin:0; font-family:system-ui,sans-serif; background:var(--bg); color:v
 .topbar { grid-area:top; display:flex; align-items:center; gap:12px; padding:0 12px;
           background:var(--panel); border-bottom:1px solid var(--line); }
 .palette { grid-area:palette; background:var(--panel); border-right:1px solid var(--line); padding:8px; }
-.canvaswrap { grid-area:canvas; display:flex; align-items:center; justify-content:center; gap:24px; }
+.canvaswrap { grid-area:canvas; position:relative; display:flex; align-items:center; justify-content:center; gap:24px; }
 .props { grid-area:props; background:var(--panel); border-left:1px solid var(--line); padding:8px; overflow:auto; }
 .device { position:relative; background:#000; outline:1px solid var(--line); }
 .widget { position:absolute; overflow:hidden; outline:1px dashed transparent; }
@@ -15,3 +15,5 @@ body { margin:0; font-family:system-ui,sans-serif; background:var(--bg); color:v
 .handle { position:absolute; right:0; bottom:0; width:10px; height:10px; background:var(--accent); cursor:se-resize; }
 .palette button, .topbar button { background:#222838; color:var(--ink); border:1px solid var(--line);
           border-radius:6px; padding:6px 10px; cursor:pointer; width:100%; margin-bottom:6px; }
+.warnings { position:absolute; bottom:8px; left:8px; color:#e0af68; font-size:12px; pointer-events:none; }
+.warnrow { margin-top:2px; }

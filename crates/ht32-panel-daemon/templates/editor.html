@@ -44,6 +44,11 @@
         </template>
       </div>
       <img class="device" :src="truthSrc" :style="deviceStyle()" alt="true preview">
+      <div class="warnings" x-show="warnings && warnings.length">
+        <template x-for="wn in warnings" :key="wn.widget_id">
+          <div class="warnrow" x-text="wn.message"></div>
+        </template>
+      </div>
     </div>
 
     <div class="props" x-show="sel!==null" x-data>
