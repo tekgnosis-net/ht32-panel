@@ -13,7 +13,8 @@ function defaultContent(kind) {
 
 window.editor = function () {
   return {
-    schema: { kinds: [], text_sources: [], number_sources: [] },
+    schema: { kinds: [], text_sources: [], number_sources: [], theme_slots: [],
+              time_fmts: [], date_fmts: [], number_fmts: [] },
     templates: [], name: "",
     spec: { name: "", orientation: "portrait", widgets: [] },
     dims: [170, 320],
@@ -40,14 +41,12 @@ window.editor = function () {
 
     select(i) { this.sel = i; },
 
-    // Drag to move or resize the selected widget. Screen px -> device px via this.scale;
-    // positions snap to a 2px device grid and clamp so the widget can't leave the screen.
-    startDrag(i, ev, mode /* 'move' | 'resize' */) {
+    startDrag(i, ev, mode) {
       ev.preventDefault();
       this.sel = i;
       const w = this.spec.widgets[i];
-      const mouse = { x: ev.clientX, y: ev.clientY };          // pointer origin (screen px)
-      const rect = { x: w.rect.x, y: w.rect.y, w: w.rect.w, h: w.rect.h }; // original box (device px)
+      const mouse = { x: ev.clientX, y: ev.clientY };
+      const rect = { x: w.rect.x, y: w.rect.y, w: w.rect.w, h: w.rect.h };
       const [dw, dh] = this.dims;
       const onMove = (e) => {
         const dx = Math.round((e.clientX - mouse.x) / this.scale / 2) * 2;
@@ -89,7 +88,11 @@ window.editor = function () {
     },
 
     async load() {
-      if (!this.name) { this.spec = { name:"", orientation:"portrait", widgets:[] }; return; }
+      if (!this.name) {
+        this.spec = { name:"", orientation:"portrait", widgets:[] };
+        this.sel = null;
+        return;
+      }
       this.spec = await (await fetch(`/api/templates/${this.name}`)).json();
       if (!this.spec.orientation) this.spec.orientation = "portrait";
       this.dims = this.spec.orientation.startsWith("portrait") ? [170,320] : [320,170];
@@ -128,6 +131,67 @@ window.editor = function () {
         this.truthSrc = "data:image/png;base64," + j.png_base64;
         this.warnings = j.warnings;
       }, 400);
+    },
+
+    // ── Colour helpers ───────────────────────────────────────────────────────
+
+    colorIsCustom(field) {
+      return typeof this.spec.widgets[this.sel][field] === "number";
+    },
+
+    colorHex(field) {
+      const v = this.spec.widgets[this.sel][field];
+      if (typeof v === "number") return "#" + v.toString(16).padStart(6, "0");
+      return "#7aa2f7";
+    },
+
+    setColorSlot(field, v) {
+      if (v === "custom") {
+        const hex = this.colorHex(field);
+        this.spec.widgets[this.sel][field] = parseInt(hex.slice(1), 16);
+      } else {
+        this.spec.widgets[this.sel][field] = v;
+      }
+      this.refreshTruth();
+      this.renderAll();
+    },
+
+    setColorHex(field, hex) {
+      this.spec.widgets[this.sel][field] = parseInt(hex.slice(1), 16);
+      this.refreshTruth();
+      this.renderAll();
+    },
+
+    colorSelectVal(field) {
+      const v = this.spec.widgets[this.sel][field];
+      return typeof v === "number" ? "custom" : v;
+    },
+
+    // ── Text source helpers ──────────────────────────────────────────────────
+
+    setTextSrc(newSrc) {
+      switch (newSrc) {
+        case "hostname":
+        case "uptime":
+        case "ip":
+        case "net_interface":
+          this.spec.widgets[this.sel].value = { src: newSrc };
+          break;
+        case "literal":
+          this.spec.widgets[this.sel].value = { src: "literal", fmt: "" };
+          break;
+        case "time":
+          this.spec.widgets[this.sel].value = { src: "time", fmt: "hhmm" };
+          break;
+        case "date":
+          this.spec.widgets[this.sel].value = { src: "date", fmt: "iso" };
+          break;
+        case "number":
+          this.spec.widgets[this.sel].value = { src: "number", fmt: { source: "cpu_percent", style: "percent" } };
+          break;
+      }
+      this.refreshTruth();
+      this.renderAll();
     },
   };
 };
