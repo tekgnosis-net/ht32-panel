@@ -12,5 +12,6 @@ body { margin:0; font-family:system-ui,sans-serif; background:var(--bg); color:v
 .widget { position:absolute; overflow:hidden; outline:1px dashed transparent; }
 .widget.selected { outline:1px solid var(--accent); }
 .widget.warn { outline:2px solid #e0af68; }
+.handle { position:absolute; right:0; bottom:0; width:10px; height:10px; background:var(--accent); cursor:se-resize; }
 .palette button, .topbar button { background:#222838; color:var(--ink); border:1px solid var(--line);
           border-radius:6px; padding:6px 10px; cursor:pointer; width:100%; margin-bottom:6px; }

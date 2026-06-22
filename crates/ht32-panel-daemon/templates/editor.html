@@ -37,8 +37,10 @@
     <div class="canvaswrap">
       <div class="device" :style="deviceStyle()">
         <template x-for="(w,i) in spec.widgets" :key="w.id">
-          <div class="widget" :class="{selected: i===sel}" @mousedown="select(i)"
-               :style="widgetStyle(w)"></div>
+          <div class="widget" :class="{selected:i===sel, warn: warnIds.includes(w.id)}"
+               @mousedown="startDrag(i,$event,'move')" :style="widgetStyle(w)">
+            <span class="handle" @mousedown.stop="startDrag(i,$event,'resize')"></span>
+          </div>
         </template>
       </div>
       <img class="device" :src="truthSrc" :style="deviceStyle()" alt="true preview">

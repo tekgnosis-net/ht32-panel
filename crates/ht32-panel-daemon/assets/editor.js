@@ -1,3 +1,5 @@
+function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
+
 function defaultContent(kind) {
   switch (kind) {
     case "text":      return { kind:"text",      value:{src:"hostname"},   size:12.0, color:"primary",   align:"left" };
@@ -16,6 +18,7 @@ window.editor = function () {
     spec: { name: "", orientation: "portrait", widgets: [] },
     dims: [170, 320],
     sel: null, truthSrc: "", warnings: [], status: "", scale: 1.5,
+    get warnIds() { return this.warnings.map(w => w.widget_id); },
     _t: null,
 
     async init() {
@@ -36,6 +39,37 @@ window.editor = function () {
     },
 
     select(i) { this.sel = i; },
+
+    // Drag to move or resize the selected widget. Screen px -> device px via this.scale;
+    // positions snap to a 2px device grid and clamp so the widget can't leave the screen.
+    startDrag(i, ev, mode /* 'move' | 'resize' */) {
+      ev.preventDefault();
+      this.sel = i;
+      const w = this.spec.widgets[i];
+      const mouse = { x: ev.clientX, y: ev.clientY };          // pointer origin (screen px)
+      const rect = { x: w.rect.x, y: w.rect.y, w: w.rect.w, h: w.rect.h }; // original box (device px)
+      const [dw, dh] = this.dims;
+      const onMove = (e) => {
+        const dx = Math.round((e.clientX - mouse.x) / this.scale / 2) * 2;
+        const dy = Math.round((e.clientY - mouse.y) / this.scale / 2) * 2;
+        if (mode === "move") {
+          w.rect.x = clamp(rect.x + dx, 0, dw - w.rect.w);
+          w.rect.y = clamp(rect.y + dy, 0, dh - w.rect.h);
+        } else {
+          w.rect.w = clamp(rect.w + dx, 4, dw - w.rect.x);
+          w.rect.h = clamp(rect.h + dy, 4, dh - w.rect.y);
+        }
+        this.renderAll();
+      };
+      const onUp = () => {
+        window.removeEventListener("mousemove", onMove);
+        window.removeEventListener("mouseup", onUp);
+        this.refreshTruth();
+        this.renderAll();
+      };
+      window.addEventListener("mousemove", onMove);
+      window.addEventListener("mouseup", onUp);
+    },
 
     renderAll() {
       this.$nextTick(() => {
