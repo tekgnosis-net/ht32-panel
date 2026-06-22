@@ -25,6 +25,18 @@
       <button @click="save()">Save</button>
       <button @click="activate()">Activate</button>
       <button @click="refreshTruth()">Refresh preview</button>
+      <!-- Top-level background colour (edits spec.background, not a widget). Always
+           visible regardless of widget selection. inherit = use theme background. -->
+      <label class="bgctl">Background
+        <select @change="setBgSlot($event.target.value)">
+          <option value="inherit" :selected="bgSelectVal() === 'inherit'">inherit (theme)</option>
+          <template x-for="s in schema.theme_slots" :key="s"><option :value="s" x-text="s" :selected="bgSelectVal() === s"></option></template>
+          <option value="custom" :selected="bgSelectVal() === 'custom'">custom…</option>
+        </select>
+        <template x-if="bgIsCustom()">
+          <input type="color" :value="bgHex()" @input="setBgHex($event.target.value)">
+        </template>
+      </label>
       <span x-text="status"></span>
     </div>
 

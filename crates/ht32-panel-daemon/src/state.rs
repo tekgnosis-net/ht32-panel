@@ -413,7 +413,8 @@ impl AppState {
         };
 
         let theme = Theme::from_preset(&settings.theme);
-        canvas.set_background(theme.background);
+        // The persisted face may declare a custom background; otherwise use the theme.
+        canvas.set_background(face.background(&theme).unwrap_or(theme.background));
 
         info!("State directory: {:?}", state_dir);
         info!("Display orientation: {}", orientation);
@@ -815,6 +816,11 @@ impl AppState {
                 display
                     .face
                     .layout(&render.canvas, &system_data, &theme, &display.complications);
+            // The active face may override the canvas background (e.g. a template
+            // with a custom solid background); otherwise inherit the theme background.
+            render
+                .canvas
+                .set_background(display.face.background(&theme).unwrap_or(theme.background));
             render.canvas.clear();
             faces::layout::render_layout(&mut render.canvas, &layout);
 
@@ -1005,7 +1011,18 @@ impl AppState {
             display.complications.init_from_defaults(new_face.as_ref());
             display.face = new_face;
             display.needs_redraw = true;
+            // Refresh the canvas background so a face with a custom background takes
+            // effect immediately, and switching to a face without one reverts to the
+            // theme background. (render_frame also does this each frame; this avoids a
+            // stale-background flash before the next frame is rendered.)
+            let theme = Theme::from_preset(&display.theme_name);
+            let bg = display.face.background(&theme).unwrap_or(theme.background);
             drop(display);
+            {
+                let mut render = self.render.write().unwrap();
+                render.canvas.set_background(bg);
+                render.cached_png = None;
+            }
             // Face change replaces most of the screen content; force a full redraw so the
             // new frame is sent as a single coherent 27-chunk write instead of a flood of
             // tile-diffs from a stale prev buffer.
@@ -1101,9 +1118,18 @@ impl AppState {
         }
 
         let theme = Theme::from_preset(name);
+        // Honour any custom background the active face declares; otherwise use the
+        // new theme's background.
+        let bg = self
+            .display
+            .read()
+            .unwrap()
+            .face
+            .background(&theme)
+            .unwrap_or(theme.background);
         {
             let mut render = self.render.write().unwrap();
-            render.canvas.set_background(theme.background);
+            render.canvas.set_background(bg);
             render.cached_png = None;
         }
         // Theme change affects background and palette across the whole screen; a full
@@ -1280,6 +1306,7 @@ mod template_crud_tests {
             name: name.to_string(),
             orientation: None,
             theme: None,
+            background: None,
             widgets: vec![],
         }
     }

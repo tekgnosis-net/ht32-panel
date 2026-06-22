@@ -63,6 +63,12 @@ impl Face for TemplateFace {
         }
         layout
     }
+
+    fn background(&self, theme: &Theme) -> Option<u32> {
+        self.spec
+            .background
+            .map(|c| super::resolve::resolve_color(&c, theme))
+    }
 }
 
 // ── Storage helpers ───────────────────────────────────────────────────────────
@@ -166,6 +172,33 @@ mod tests {
         Theme::from_preset("nord")
     }
 
+    fn empty_spec(background: Option<ColorRef>) -> TemplateSpec {
+        TemplateSpec {
+            name: "bg".to_string(),
+            orientation: None,
+            theme: None,
+            background,
+            widgets: vec![],
+        }
+    }
+
+    /// `TemplateFace::background` returns `None` (inherit) when the spec omits a
+    /// background, resolves a theme slot against the active theme, and passes a
+    /// hex literal through unchanged.
+    #[test]
+    fn template_face_background_resolves() {
+        let theme = default_theme();
+
+        let inherit = TemplateFace::new(empty_spec(None));
+        assert_eq!(inherit.background(&theme), None);
+
+        let slot = TemplateFace::new(empty_spec(Some(ColorRef::Theme(ThemeSlot::Primary))));
+        assert_eq!(slot.background(&theme), Some(theme.primary));
+
+        let hex = TemplateFace::new(empty_spec(Some(ColorRef::Hex(0x123456))));
+        assert_eq!(hex.background(&theme), Some(0x123456));
+    }
+
     // ── TemplateFace rendering pipeline ──────────────────────────────────────
 
     /// End-to-end chain: `TemplateSpec` → `TemplateFace` → `layout()` →
@@ -180,6 +213,7 @@ mod tests {
             name: "test_bar".to_string(),
             orientation: None,
             theme: None,
+            background: None,
             widgets: vec![TemplateWidget {
                 id: "cpu_bar".to_string(),
                 rect: Rect {
@@ -237,6 +271,7 @@ mod tests {
             name: "my_face".to_string(),
             orientation: None,
             theme: None,
+            background: None,
             widgets: vec![TemplateWidget {
                 id: "hostname".to_string(),
                 rect: Rect {
@@ -295,6 +330,7 @@ mod tests {
             name: "secret".to_string(),
             orientation: None,
             theme: None,
+            background: None,
             widgets: vec![],
         };
         std::fs::write(

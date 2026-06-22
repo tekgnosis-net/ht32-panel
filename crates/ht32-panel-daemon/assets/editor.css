@@ -15,5 +15,6 @@ body { margin:0; font-family:system-ui,sans-serif; background:var(--bg); color:v
 .handle { position:absolute; right:0; bottom:0; width:10px; height:10px; background:var(--accent); cursor:se-resize; }
 .palette button, .topbar button { background:#222838; color:var(--ink); border:1px solid var(--line);
           border-radius:6px; padding:6px 10px; cursor:pointer; width:100%; margin-bottom:6px; }
+.bgctl { display:flex; align-items:center; gap:6px; font-size:13px; }
 .warnings { position:absolute; bottom:8px; left:8px; color:#e0af68; font-size:12px; pointer-events:none; }
 .warnrow { margin-top:2px; }

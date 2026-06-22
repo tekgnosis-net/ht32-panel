@@ -30,7 +30,7 @@ window.editor = function () {
 
     deviceStyle() {
       const [w,h] = this.dims; const s = this.scale;
-      return `width:${w*s}px;height:${h*s}px`;
+      return `width:${w*s}px;height:${h*s}px;background:${this.bgCss()}`;
     },
 
     widgetStyle(w) {
@@ -177,6 +177,57 @@ window.editor = function () {
       const v = this.cur?.[field];
       if (v === undefined || v === null) return "";
       return typeof v === "number" ? "custom" : v;
+    },
+
+    // ── Background helpers ────────────────────────────────────────────────────
+    // These edit the top-level `spec.background` (NOT a widget field), so they are
+    // always valid regardless of widget selection. `null`/absent = inherit theme.
+
+    // Approximate theme-slot → preview hex map, mirroring widgets.js' THEME.
+    _bgPreviewTheme: { primary: "#7aa2f7", secondary: "#bb9af7",
+                       text: "#cdd6f4", background: "#1a1b26" },
+
+    bgSelectVal() {
+      const v = this.spec.background;
+      if (v === undefined || v === null) return "inherit";
+      return typeof v === "number" ? "custom" : v;
+    },
+
+    bgIsCustom() {
+      return typeof this.spec.background === "number";
+    },
+
+    bgHex() {
+      const v = this.spec.background;
+      if (typeof v === "number") return "#" + v.toString(16).padStart(6, "0");
+      return "#1a1b26";
+    },
+
+    // Resolve spec.background to a CSS colour for the editing canvas. Approximate;
+    // the server truth preview is authoritative.
+    bgCss() {
+      const v = this.spec.background;
+      if (typeof v === "number") return "#" + v.toString(16).padStart(6, "0");
+      if (typeof v === "string") return this._bgPreviewTheme[v] || "#000";
+      return "#000"; // inherit: device defaults to black until truth preview loads
+    },
+
+    setBgSlot(v) {
+      if (v === "inherit") {
+        this.spec.background = null;
+      } else if (v === "custom") {
+        this.spec.background = parseInt(this.bgHex().slice(1), 16);
+      } else {
+        this.spec.background = v;
+      }
+      this.refreshTruth();
+      this.renderAll();
+    },
+
+    setBgHex(hex) {
+      this.spec.background = parseInt(hex.slice(1), 16);
+      this.refreshTruth();
+      this.renderAll();
     },
 
     // ── Text source helpers ──────────────────────────────────────────────────

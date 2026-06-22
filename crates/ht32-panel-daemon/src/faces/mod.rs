@@ -779,6 +779,11 @@ pub trait Face: Send + Sync {
         theme: &Theme,
         complications: &EnabledComplications,
     ) -> layout::Layout;
+
+    /// The face's canvas background colour, or `None` to use the theme background.
+    fn background(&self, _theme: &Theme) -> Option<u32> {
+        None
+    }
 }
 
 /// Creates a face by name.

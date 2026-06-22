@@ -105,7 +105,8 @@ pub fn preview_render(
     let (w, h) = (w as u32, h as u32);
     let reference = Canvas::new(w, h);
     let comps = EnabledComplications::new();
-    let layout = TemplateFace::new(spec.clone()).layout(&reference, &sample_data(), theme, &comps);
+    let face = TemplateFace::new(spec.clone());
+    let layout = face.layout(&reference, &sample_data(), theme, &comps);
     let warnings = check_bounds(&layout, &reference);
 
     // Exclude only widgets whose drawn extent would overflow the canvas.
@@ -120,7 +121,8 @@ pub fn preview_render(
     };
 
     let mut canvas = Canvas::new(w, h);
-    canvas.set_background(theme.background);
+    let bg = face.background(theme).unwrap_or(theme.background);
+    canvas.set_background(bg);
     canvas.clear();
     render_layout(&mut canvas, &render_layout_filtered);
 
@@ -180,6 +182,7 @@ mod tests {
             name: "p".into(),
             orientation: None,
             theme: None,
+            background: None,
             widgets: vec![
                 TemplateWidget {
                     id: "bar".into(),

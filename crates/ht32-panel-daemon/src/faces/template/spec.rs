@@ -295,6 +295,11 @@ pub struct TemplateSpec {
     pub orientation: Option<TemplateOrientation>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub theme: Option<String>,
+    /// Optional canvas background colour. `None` inherits the theme background.
+    /// Reuses [`ColorRef`], so a future `ColorRef::Gradient` variant would give
+    /// gradient backgrounds for free.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub background: Option<ColorRef>,
     pub widgets: Vec<TemplateWidget>,
 }
 
@@ -313,6 +318,7 @@ mod tests {
             name: "my_face".to_string(),
             orientation: Some(TemplateOrientation::Landscape),
             theme: Some("nord".to_string()),
+            background: None,
             widgets: vec![
                 TemplateWidget {
                     id: "hostname".to_string(),
@@ -615,6 +621,52 @@ mod tests {
 
         assert_eq!(back_theme, theme_color);
         assert_eq!(back_hex, hex_color);
+    }
+
+    /// `TemplateSpec.background` is optional: `None` is omitted on serialize, a
+    /// missing key deserializes to `None`, and slot-string / hex-int both survive
+    /// a round-trip (reusing the untagged `ColorRef` wire format).
+    #[test]
+    fn background_field_serde() {
+        let base = TemplateSpec {
+            name: "bg".to_string(),
+            orientation: None,
+            theme: None,
+            background: None,
+            widgets: vec![],
+        };
+
+        // None ⟹ key omitted entirely.
+        let none_json = serde_json::to_string(&base).unwrap();
+        assert!(!none_json.contains("background"));
+
+        // Missing key ⟹ None (serde default).
+        let from_missing: TemplateSpec =
+            serde_json::from_str(r#"{"name":"bg","widgets":[]}"#).unwrap();
+        assert_eq!(from_missing.background, None);
+
+        // Theme-slot string round-trips.
+        let slot = TemplateSpec {
+            background: Some(ColorRef::Theme(ThemeSlot::Secondary)),
+            ..base.clone()
+        };
+        let slot_json = serde_json::to_string(&slot).unwrap();
+        assert!(slot_json.contains(r#""background":"secondary""#));
+        let back_slot: TemplateSpec = serde_json::from_str(&slot_json).unwrap();
+        assert_eq!(
+            back_slot.background,
+            Some(ColorRef::Theme(ThemeSlot::Secondary))
+        );
+
+        // Hex integer round-trips.
+        let hex = TemplateSpec {
+            background: Some(ColorRef::Hex(0x102030)),
+            ..base
+        };
+        let hex_json = serde_json::to_string(&hex).unwrap();
+        assert!(hex_json.contains(r#""background":1056816"#)); // 0x102030 decimal
+        let back_hex: TemplateSpec = serde_json::from_str(&hex_json).unwrap();
+        assert_eq!(back_hex.background, Some(ColorRef::Hex(0x102030)));
     }
 
     /// Fixed `ScaleMode` round-trips correctly.
