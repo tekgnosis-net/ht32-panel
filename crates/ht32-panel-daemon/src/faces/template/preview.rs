@@ -46,10 +46,30 @@ pub fn sample_data() -> SystemData {
     d
 }
 
+/// Returns true if the primitive extent of `w` would draw outside `canvas` —
+/// mirroring the exact conditions of `draw_arc`/`fill_circle`'s `debug_assert!`s.
+/// Used by both `overflows_canvas` (filter) and `check_bounds` (warn).
+fn widget_primitive_overflows(w: &Widget, cw: i32, ch: i32) -> bool {
+    match &w.content {
+        WidgetContent::Arc {
+            cx, cy, r, stroke, ..
+        } => {
+            let total = *r as i32 + (*stroke / 2.0).ceil() as i32;
+            cx - total < 0 || cy - total < 0 || cx + total > cw || cy + total > ch
+        }
+        WidgetContent::Circle { cx, cy, r, .. } => {
+            let ri = *r as i32;
+            cx - ri < 0 || cy - ri < 0 || cx + ri > cw || cy + ri > ch
+        }
+        _ => false,
+    }
+}
+
 /// True if rendering `w` would draw outside the canvas — exactly the condition
-/// that trips render_layout's `debug_assert!`s (rect off-canvas, or Text/TextScaled
-/// whose drawn extent exceeds the canvas edge). `preview_render` filters these so a
-/// draft with off-canvas content does not panic in debug builds; on release hardware
+/// that trips render_layout's `debug_assert!`s (rect off-canvas, Text/TextScaled
+/// whose drawn extent exceeds the canvas edge, or Arc/Circle whose geometric
+/// extent exceeds the canvas edge). `preview_render` filters these so a draft
+/// with off-canvas content does not panic in debug builds; on release hardware
 /// such content is clipped, so omitting it in the preview is the accepted, warned
 /// divergence. Text that overflows its RECT but stays within the canvas is NOT
 /// filtered — it renders truthfully, matching hardware.
@@ -59,6 +79,10 @@ fn overflows_canvas(w: &Widget, canvas: &Canvas) -> bool {
     let r = &w.rect;
     // rect-based widgets: rect must be fully on-canvas.
     if r.x < 0 || r.y < 0 || r.x + r.w as i32 > cw || r.y + r.h as i32 > ch {
+        return true;
+    }
+    // Arc and Circle: check geometric extent against canvas bounds.
+    if widget_primitive_overflows(w, cw, ch) {
         return true;
     }
     // Text additionally asserts on the measured text extent (draw_text panics
@@ -137,9 +161,9 @@ pub fn preview_render(
     (png, warnings)
 }
 
-/// Reports widgets whose rect leaves the canvas, or whose resolved text is wider
-/// than its rect. Computed in the same units the renderer draws in, so a warning
-/// can never disagree with the rendered pixels.
+/// Reports widgets whose rect leaves the canvas, whose Arc/Circle extent leaves
+/// the canvas, or whose resolved text is wider than its rect. Computed in the same
+/// units the renderer draws in, so a warning can never disagree with the rendered pixels.
 pub fn check_bounds(layout: &Layout, canvas: &Canvas) -> Vec<Warning> {
     let (cw, ch) = canvas.dimensions();
     let (cw, ch) = (cw as i32, ch as i32);
@@ -152,6 +176,14 @@ pub fn check_bounds(layout: &Layout, canvas: &Canvas) -> Vec<Warning> {
                 message: format!("widget '{}' extends outside the {}×{} screen", w.id, cw, ch),
             });
             continue; // one warning per widget is enough
+        }
+        // Arc and Circle: check primitive draw extent against canvas bounds.
+        if widget_primitive_overflows(w, cw, ch) {
+            out.push(Warning {
+                widget_id: w.id.to_string(),
+                message: format!("widget '{}' draws outside the {}×{} screen", w.id, cw, ch),
+            });
+            continue;
         }
         if let WidgetContent::Text { text, size, .. } = &w.content {
             if canvas.text_width(text, *size) > r.w as i32 {
@@ -408,5 +440,78 @@ mod tests {
         assert!(d.disk_history.len() >= 60);
         assert!(d.net_rx_history.len() >= 60);
         assert!(!d.hostname.is_empty());
+    }
+
+    /// Regression: an Arc widget whose rect is in-bounds but whose geometric extent
+    /// (cx + radius + ceil(stroke/2)) exceeds the canvas edge must:
+    ///   (a) NOT panic in `preview_render` / `render_layout` (previously would panic in
+    ///       debug builds because the off-canvas arc slipped through the filter),
+    ///   (b) produce a `check_bounds` WARNING for the overflowing widget, AND
+    ///   (c) be filtered out by `overflows_canvas` (returns true).
+    ///
+    /// Setup: 320×170 canvas; Arc at cx=310, cy=85, r=20, stroke=4.0.
+    ///   total_radius = 20 + ceil(2.0) = 22; 310 + 22 = 332 > 320 → right-edge overflow.
+    ///   The rect is set to cover the full canvas (in-bounds), so only the primitive
+    ///   extent check catches it.
+    #[test]
+    fn arc_primitive_overflow_is_warned_filtered_and_does_not_panic() {
+        // Canvas 320×170 (landscape orientation).
+        let canvas_ref = Canvas::new(320, 170);
+        let arc_widget = Widget {
+            id: Cow::Borrowed("arc_oob"),
+            rect: Rect {
+                x: 0,
+                y: 0,
+                w: 320,
+                h: 170,
+            },
+            kind: ZoneKind::Dynamic,
+            cadence: Cadence::EveryFrame,
+            content: WidgetContent::Arc {
+                cx: 310,
+                cy: 85,
+                r: 20,
+                start_angle: 0.0,
+                end_angle: std::f32::consts::PI * 2.0,
+                stroke: 4.0, // total_radius = 20 + ceil(2.0) = 22; 310+22=332 > 320
+                color: 0xFF0000,
+            },
+        };
+
+        // (b) check_bounds must warn.
+        let layout = Layout {
+            widgets: vec![arc_widget.clone()],
+        };
+        let warns = check_bounds(&layout, &canvas_ref);
+        assert!(
+            warns.iter().any(|w| w.widget_id == "arc_oob"),
+            "check_bounds must warn when arc primitive extent exceeds the canvas"
+        );
+
+        // (c) overflows_canvas must return true.
+        assert!(
+            overflows_canvas(&arc_widget, &canvas_ref),
+            "overflows_canvas must be true when arc+stroke extends past the canvas edge"
+        );
+
+        // (a) render_layout must NOT panic when the widget is filtered.
+        // Build a filtered layout the same way preview_render does.
+        let filtered = Layout {
+            widgets: layout
+                .widgets
+                .into_iter()
+                .filter(|w| !overflows_canvas(w, &canvas_ref))
+                .collect(),
+        };
+        let mut render_canvas = Canvas::new(320, 170);
+        render_canvas.set_background(0x000000);
+        render_canvas.clear();
+        render_layout(&mut render_canvas, &filtered); // must not panic
+                                                      // The widget was filtered, so the canvas stays black.
+        let all_black = render_canvas
+            .pixels()
+            .chunks_exact(4)
+            .all(|p| p[0] == 0 && p[1] == 0 && p[2] == 0);
+        assert!(all_black, "filtered arc must leave canvas unchanged");
     }
 }

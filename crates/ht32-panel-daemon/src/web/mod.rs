@@ -1,7 +1,7 @@
 //! HTMX web UI module.
 
-pub mod api;
-pub mod editor;
+mod api;
+mod editor;
 
 use askama::Template;
 use axum::{
