@@ -78,7 +78,7 @@
 
     evtSource.addEventListener('display', function(e) {
         htmx.trigger('#theme-controls', 'load');
-        htmx.trigger('#face-controls', 'load');
+        htmx.trigger('#face-controls', 'reload');
         htmx.trigger('#complications-controls', 'reload');
         refreshAfterChange();
     });
@@ -93,7 +93,7 @@
     });
 
     evtSource.addEventListener('templates', function(e) {
-        htmx.trigger('#face-controls', 'load');
+        htmx.trigger('#face-controls', 'reload');
     });
 
     evtSource.onerror = function() {
@@ -128,7 +128,7 @@
 
         <div class="card">
             <h2>Display Face</h2>
-            <div id="face-controls" hx-get="/face" hx-trigger="load" hx-swap="innerHTML"
+            <div id="face-controls" hx-get="/face" hx-trigger="load, reload" hx-swap="innerHTML"
                  hx-on::after-settle="htmx.trigger('#complications-controls', 'reload')">
                 Loading...
             </div>
